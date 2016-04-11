@@ -1,0 +1,3 @@
+[console_scripts]
+pynsxv = pynsxv.cli:main
+

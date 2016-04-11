@@ -1,0 +1,20 @@
+Metadata-Version: 1.1
+Name: PyNSXv
+Version: 0.1
+Summary: PyNSXv is a high level python based library and CLI tool to control NSX for vSphere
+Home-page: http://github.com/vmware/pynsxv
+Author: Dimitri Desmidt, Emanuele Mazza, Yves Fauser
+Author-email: yfauser@vmware.com
+License: MIT
+Description: pynsxv
+        ======
+        
+        PyNSXv is a high level python based library and CLI tool to control NSX
+        for vSphere
+        
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: Topic :: Utilities
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 2.7

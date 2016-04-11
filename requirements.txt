@@ -1,0 +1,4 @@
+nsxramlclient
+pyvmomi
+tabulate
+
