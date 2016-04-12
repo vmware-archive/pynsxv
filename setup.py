@@ -14,7 +14,7 @@ long_description = read('README.rst')
 
 setup(
     name='PyNSXv',
-    version='0.1',
+    version='0.2',
     packages=['pynsxv'],
     package_data={'pynsxv':['*'], 'pynsxv':['library/*']},
     url='http://github.com/vmware/pynsxv',
