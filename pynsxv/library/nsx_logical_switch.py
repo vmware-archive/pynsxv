@@ -152,7 +152,7 @@ def contruct_parser(subparsers):
                         help="nsx transport zone")
     parser.add_argument("-n",
                         "--name",
-                        help="logical switch name")
+                        help="logical switch name, needed for create, read and delete")
 
     parser.set_defaults(func=_lswitch_main)
 
