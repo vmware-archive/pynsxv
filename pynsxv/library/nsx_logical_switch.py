@@ -43,7 +43,7 @@ def logical_switch_create(client_session, transport_zone, logical_switch_name, c
         control_plane_mode = vdn_scope['controlPlaneMode']
 
     # get a template dict for the lswitch create
-    lswitch_create_dict = client_session.extract_resource_body_schema('logicalSwitches', 'create')
+    lswitch_create_dict = client_session.extract_resource_body_example('logicalSwitches', 'create')
 
     # fill the details for the new lswitch in the body dict
     lswitch_create_dict['virtualWireCreateSpec']['controlPlaneMode'] = control_plane_mode
