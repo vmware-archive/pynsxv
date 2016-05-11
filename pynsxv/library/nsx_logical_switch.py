@@ -25,6 +25,7 @@ from libutils import get_scope
 from libutils import get_logical_switch
 from tabulate import tabulate
 from nsxramlclient.client import NsxClient
+from argparse import RawTextHelpFormatter
 
 
 def logical_switch_create(client_session, transport_zone, logical_switch_name, control_plane_mode=None):
@@ -59,6 +60,9 @@ def logical_switch_create(client_session, transport_zone, logical_switch_name, c
 def _logical_switch_create(client_session, **kwargs):
     transport_zone = kwargs['transport_zone']
     logical_switch_name = kwargs['logical_switch_name']
+    if not logical_switch_name:
+        print 'You must specify a logical switch name for create'
+        return None
     logical_switch_id, logical_switch_params = logical_switch_create(client_session, transport_zone,
                                                                      logical_switch_name)
     if kwargs['verbose']:
@@ -84,6 +88,9 @@ def logical_switch_delete(client_session, logical_switch_name):
 
 def _logical_switch_delete(client_session, **kwargs):
     logical_switch_name = kwargs['logical_switch_name']
+    if not logical_switch_name:
+        print 'You must specify a logical switch name for deletion'
+        return None
     result, logical_switch_id = logical_switch_delete(client_session, logical_switch_name)
     if result and kwargs['verbose']:
         return json.dumps(logical_switch_id)
@@ -107,6 +114,9 @@ def logical_switch_read(client_session, logical_switch_name):
 
 def _logical_switch_read(client_session, **kwargs):
     logical_switch_name = kwargs['logical_switch_name']
+    if not logical_switch_name:
+        print 'You must specify a logical switch name for read'
+        return None
     logical_switch_id, logical_switch_params = logical_switch_read(client_session, logical_switch_name)
     if logical_switch_params and kwargs['verbose']:
         print json.dumps(logical_switch_params)
@@ -127,7 +137,11 @@ def logical_switch_list(client_session):
     all_logical_switches = client_session.read_all_pages('logicalSwitchesGlobal', 'read')
     switch_list = []
     for ls in all_logical_switches:
-        switch_list.append((ls['name'], ls['objectId']))
+        try:
+            lsname = ls['name']
+        except KeyError:
+            lsname = '<empty name>'
+        switch_list.append((lsname, ls['objectId']))
     return switch_list, all_logical_switches
 
 
@@ -141,12 +155,16 @@ def _logical_switch_list_print(client_session, **kwargs):
 
 def contruct_parser(subparsers):
     parser = subparsers.add_parser('lswitch', description="Functions for logical switches",
-                                   help="Functions for logical switches")
+                                   help="Functions for logical switches",
+                                   formatter_class=RawTextHelpFormatter)
 
-    parser.add_argument("command", help="create: create a new logical switch"
-                                        "read: return the virtual wire id of a logical switch"
-                                        "delete: delete a logical switch"
-                                        "list: return a list of all logical switches")
+    parser.add_argument("command", help="""
+    create: create a new logical switch
+    read:   return the virtual wire id of a logical switch
+    delete: delete a logical switch"
+    list:   return a list of all logical switches
+    """)
+
     parser.add_argument("-t",
                         "--transport_zone",
                         help="nsx transport zone")
