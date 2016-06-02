@@ -27,6 +27,7 @@ __author__ = 'yfauser'
 import argparse
 import library.nsx_logical_switch as lswitch
 import library.nsx_dlr as dlr
+import library.nsx_esg as esg
 import library.nsx_usage as usage
 
 
@@ -48,6 +49,7 @@ def main():
     subparsers = parser.add_subparsers()
     lswitch.contruct_parser(subparsers)
     dlr.contruct_parser(subparsers)
+    esg.contruct_parser(subparsers)
     usage.contruct_parser(subparsers)
 
     args = parser.parse_args()

@@ -166,3 +166,16 @@ def get_vdsportgroupid(content, datacenter_name, switch_name):
         return vdsportgroupid.encode("ascii")
     else:
         return None
+
+
+def check_for_parameters(mandatory, args):
+    try:
+        for param in mandatory:
+            if args[param] == None:
+                print 'You are missing the mandatory parameter: {}'.format(param)
+                return None
+    except KeyError:
+        print 'You are missing the mandatory parameter: {}'.format(param)
+        return None
+
+    return True
