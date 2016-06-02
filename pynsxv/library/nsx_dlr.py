@@ -412,13 +412,13 @@ def contruct_parser(subparsers):
                                    formatter_class=RawTextHelpFormatter)
     parser.add_argument("command", help="""
     create:         create a new dlr
-    read:           return the virtual wire id of a dlr
+    read:           return the id of a dlr
     delete:         delete a dlr
     list:           return a list of all dlr
     dgw_set:        set dlr default gateway ip address
     dgw_del:        delete dlr default gateway ip address
     add_interface:  add interface in dlr
-    dlr_interface:  delete interface of dlr"
+    del_interface:  delete interface of dlr
     list_interfaces:list all interfaces of dlr
     """)
 
