@@ -1,7 +1,7 @@
 Metadata-Version: 1.1
 Name: PyNSXv
-Version: 0.2
-Summary: PyNSXv is a high level python based library and CLI tool to control NSX for vSphere
+Version: 0.3
+Summary: PyNSXv is a higher level python based library and CLI tool to control NSX for vSphere
 Home-page: http://github.com/vmware/pynsxv
 Author: Dimitri Desmidt, Emanuele Mazza, Yves Fauser
 Author-email: yfauser@vmware.com

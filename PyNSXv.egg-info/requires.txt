@@ -1,3 +1,3 @@
-nsxramlclient
+nsxramlclient>=2.0
 pyvmomi
 tabulate

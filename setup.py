@@ -14,14 +14,14 @@ long_description = read('README.rst')
 
 setup(
     name='PyNSXv',
-    version='0.2',
+    version='0.3',
     packages=['pynsxv'],
     package_data={'pynsxv':['*'], 'pynsxv':['library/*']},
     url='http://github.com/vmware/pynsxv',
     license='MIT',
     author='Dimitri Desmidt, Emanuele Mazza, Yves Fauser',
     author_email='yfauser@vmware.com',
-    description='PyNSXv is a high level python based library and CLI tool to control NSX for vSphere',
+    description='PyNSXv is a higher level python based library and CLI tool to control NSX for vSphere',
     long_description=long_description,
     classifiers=[
     'Development Status :: 5 - Production/Stable',
@@ -29,7 +29,7 @@ setup(
     'Topic :: Utilities',
     'License :: OSI Approved :: MIT License',
     'Programming Language :: Python :: 2.7'],
-    install_requires=['nsxramlclient>=1.0.4', 'pyvmomi', 'tabulate'],
+    install_requires=['nsxramlclient>=2.0', 'pyvmomi', 'tabulate'],
     entry_points={
         'console_scripts': ['pynsxv = pynsxv.cli:main']
     }
