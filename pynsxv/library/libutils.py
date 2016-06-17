@@ -179,3 +179,117 @@ def check_for_parameters(mandatory, args):
         return None
 
     return True
+
+
+def dfw_rule_list_helper(client_session, dfw_section, rule_list):
+    source_list = list()
+    destination_list = list()
+    service_list = list()
+    applyto_list = list()
+    #print ''
+    #print dfw_section
+    #print source_list
+    #print type(source_list)
+    #print ''
+    for rptr in dfw_section:
+        rule_id = rptr['@id']
+        rule_name = rptr['name']
+        rule_action = rptr['action']
+        rule_direction = rptr['direction']
+        rule_packetype = rptr['packetType']
+        rule_section_id = rptr['sectionId']
+
+        if 'sources' in rptr:
+            #print 'SOURCE IS SPECIFIED'
+            sources = client_session.normalize_list_return(rptr['sources']['source'])
+            #print ''
+            #print sources
+            #print ''
+            for srcptr in sources:
+                if srcptr['type'] == 'Ipv4Address':
+                    rule_source = str(srcptr['value'])
+                elif srcptr['type'] == 'VirtualMachine':
+                    rule_source = str(srcptr['name'])
+                else:
+                    rule_source = srcptr['name']
+                #print 'RULE SOURCE'
+                #print rule_source
+                #print 'SOURCE LIST'
+                #print source_list
+                source_list.append(rule_source)
+            #print ''
+            #print 'SOURCE APPENDED'
+            #print source_list
+            #print ''
+            source_list = " - ".join(source_list)
+        else:
+            #print 'SOURCE IS ANY'
+            source_list = 'any'
+        #print ''
+        #print source_list
+        #print ''
+
+        if 'destinations' in rptr:
+            #print 'DESTINATION IS SPECIFIED'
+            destinations = client_session.normalize_list_return(rptr['destinations']['destination'])
+            #print ''
+            #print destinations
+            #print ''
+            for dscptr in destinations:
+                if dscptr['type'] == 'Ipv4Address':
+                    rule_destination = dscptr['value']
+                elif dscptr['type'] == 'VirtualMachine':
+                    rule_destination = dscptr['name']
+                else:
+                    rule_destination = dscptr['name']
+                destination_list.append(rule_destination)
+            destination_list = ' - '.join(destination_list)
+        else:
+            #print 'DESTINATION IS ANY'
+            destination_list = 'any'
+        #print ''
+        #print destination_list
+        #print ''
+
+        if 'services' in rptr:
+            #print 'SERVICES ARE SPECIFIED'
+            services = client_session.normalize_list_return(rptr['services']['service'])
+            #print ''
+            #print services
+            #print ''
+            for srvcptr in services:
+                rule_services = srvcptr['name']
+                service_list.append(rule_services)
+            service_list = ' - '.join(service_list)
+        else:
+            #print 'SERVICE IS ANY'
+            service_list = 'any'
+        #print ''
+        #print service_list
+        #print ''
+
+        if 'appliedToList' in rptr:
+            #print 'APPLY-TO IS SPECIFIED'
+            applyto = client_session.normalize_list_return(rptr['appliedToList']['appliedTo'])
+            #print ''
+            #print applyto
+            #print ''
+            for apptr in applyto:
+                rule_applyto = apptr['name']
+                applyto_list.append(rule_applyto)
+            applyto_list = ' - '.join(applyto_list)
+        else:
+            #print 'APPLY-TO IS ANY'
+            applyto_list = 'any'
+        #print ''
+        #print applyto_list
+        #print ''
+
+        rule_list.append([rule_id, rule_name, source_list, destination_list, service_list, rule_action,
+                                     rule_direction, rule_packetype, applyto_list, rule_section_id])
+        source_list = list()
+        destination_list = list()
+        service_list = list()
+        applyto_list = list()
+
+    return rule_list
