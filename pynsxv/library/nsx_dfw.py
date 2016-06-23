@@ -154,6 +154,43 @@ def _dfw_rule_list_print(client_session, **kwargs):
                                                 "Packet Type", "Applied-To", "ID (Section)"], tablefmt="psql")
 
 
+def dfw_rule_read(client_session, rule_id):
+    """
+    This funtions retrieves details of a dfw rule given its id
+    :param client_session: An instance of an NsxClient Session
+    :param rule_id: The ID of the dfw rule to retrieve
+    :return: returns
+            - tabular view of the dfw rule
+            - ( verbose option ) a list containing the dfw rule information: ID(Rule)- Name(Rule)- Source- Destination-
+              Services- Action - Direction- Pktytpe- AppliedTo- ID(section)
+    """
+    rule_list = dfw_rule_list(client_session)
+    rule = list()
+    #print ''
+    #print rule_list
+    #print ''
+    for sectionptr in rule_list:
+        for ruleptr in sectionptr:
+            if ruleptr[0] == str(rule_id):
+                rule.append(ruleptr)
+                #for data in ruleptr:
+                    #rule.append(data)
+    return rule
+
+
+
+def _dfw_rule_read_print(client_session, **kwargs):
+    if not (kwargs['dfw_rule_id']):
+        print ('Mandatory parameters missing: [-rid RULE ID]')
+        return None
+    rule_id = kwargs['dfw_rule_id']
+    rule = dfw_rule_read(client_session, rule_id)
+    if kwargs['verbose']:
+        print rule
+    else:
+        print tabulate(rule, headers=["ID", "Name", "Source", "Destination", "Service", "Action", "Direction",
+                                              "Packet Type", "Applied-To", "ID (Section)"], tablefmt="psql")
+
 
 
 def dfw_section_read(client_session, dfw_section_id):
@@ -203,13 +240,16 @@ def contruct_parser(subparsers):
     list_sections:   return a list of all distributed firewall's sections
     read_section:    return the details of a dfw section given its id
     list_rules:      return a list of all distributed firewall's rules
-    create_section:  TBD
-    delete_section:  TBD
+    read_rule:       return the details of a dfw rule given its id
     """)
 
     parser.add_argument("-sid",
-                        "--section_id",
-                        help="dfw section id needed for create, read and delete")
+                        "--dfw_section_id",
+                        help="dfw section id needed for create, read and delete operations")
+    parser.add_argument("-rid",
+                        "--dfw_rule_id",
+                        help="dfw rule id needed for create, read and delete operations")
+
 
     parser.set_defaults(func=_dfw_main)
 
@@ -234,9 +274,11 @@ def _dfw_main(args):
         command_selector = {
             'list_sections': _dfw_section_list_print,
             'read_section': _dfw_section_read_print,
-            'list_rules':   _dfw_rule_list_print,
+            'list_rules': _dfw_rule_list_print,
+            'read_rule': _dfw_rule_read_print,
             }
-        command_selector[args.command](client_session, verbose=args.verbose, dfw_section_id=args.section_id)
+        command_selector[args.command](client_session, verbose=args.verbose, dfw_section_id=args.dfw_section_id,
+                                       dfw_rule_id=args.dfw_rule_id)
 
 
     except KeyError:
