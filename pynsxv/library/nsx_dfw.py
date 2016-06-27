@@ -101,6 +101,55 @@ def _dfw_section_list_print(client_session, **kwargs):
 
 
 
+def dfw_section_id_read(client_session, dfw_section_name):
+    """
+    This function returns the section(s) ID(s) given a section name
+    :param client_session: An instance of an NsxClient Session
+    :param section_name: The name ( case sensitive ) of the section for which the ID is wanted
+    :return returns
+            - A list of dictionaries. Each dictionary contains the type and the id of each section with named as
+              specified by the input parameter. If no such section exist, the list contain a single dictionary with
+              {'Type': 0, 'Id': 0}
+    """
+    l2_section_list, l3r_section_list, l3_section_list, detailed_dfw_sections = dfw_section_list(client_session)
+    dfw_section_id = list()
+    print dfw_section_id
+    dfw_section_name = str(dfw_section_name)
+
+    for i,val in enumerate(l3_section_list):
+        if str(val[0]) == dfw_section_name:
+            dfw_section_id.append({'Type': str(val[2]), 'Id': int(val[1])})
+
+    for i,val in enumerate(l3r_section_list):
+        if str(val[0]) == dfw_section_name:
+            dfw_section_id.append({'Type': str(val[2]), 'Id': int(val[1])})
+
+    for i,val in enumerate(l2_section_list):
+        if str(val[0]) == dfw_section_name:
+            dfw_section_id.append({'Type': str(val[2]), 'Id': int(val[1])})
+
+    if len(dfw_section_id) == 0:
+        dfw_section_id.append({'Type': 0, 'Id': 0})
+    return dfw_section_id
+
+def _dfw_section_id_read_print(client_session, **kwargs):
+    """
+    TBDONE
+    This function returns the section ID given the section name
+    :param client_session: An instance of an NsxClient Session
+    :param section_name: The name of the section for which the ID is wanted
+    :return returns
+            - the ID of the section ( 0 if the section does not exist )
+    """
+    if not (kwargs['dfw_section_name']):
+        print ('Mandatory parameters missing: [-sname SECTION NAME]')
+        return None
+    dfw_section_name = str(kwargs['dfw_section_name'])
+    dfw_section_id = dfw_section_id_read(client_session, dfw_section_name)
+    print dfw_section_id
+
+
+
 
 def dfw_rule_list(client_session):
     """
@@ -191,6 +240,8 @@ def _dfw_rule_list_print(client_session, **kwargs):
                                                 "Packet Type", "Applied-To", "ID (Section)"], tablefmt="psql")
 
 
+
+
 def dfw_rule_read(client_session, rule_id):
     """
     This funtions retrieves details of a dfw rule given its id
@@ -213,8 +264,6 @@ def dfw_rule_read(client_session, rule_id):
                 #for data in ruleptr:
                     #rule.append(data)
     return rule
-
-
 
 def _dfw_rule_read_print(client_session, **kwargs):
     if not (kwargs['dfw_rule_id']):
@@ -268,6 +317,7 @@ def _dfw_section_read_print(client_session, **kwargs):
         print tabulate(section_list, headers=["Name", "ID", "Type", "Etag"], tablefmt="psql")
 
 
+
 def contruct_parser(subparsers):
     parser = subparsers.add_parser('dfw', description="Functions for distributed firewall",
                                    help="Functions for distributed firewall",
@@ -276,6 +326,7 @@ def contruct_parser(subparsers):
     parser.add_argument("command", help="""
     list_sections:   return a list of all distributed firewall's sections
     read_section:    return the details of a dfw section given its id
+    read_section_id: return the id of a section given its name (case sensitive)
     list_rules:      return a list of all distributed firewall's rules
     read_rule:       return the details of a dfw rule given its id
     """)
@@ -286,6 +337,9 @@ def contruct_parser(subparsers):
     parser.add_argument("-rid",
                         "--dfw_rule_id",
                         help="dfw rule id needed for create, read and delete operations")
+    parser.add_argument("-sname",
+                        "--dfw_section_name",
+                        help="dfw section name")
 
 
     parser.set_defaults(func=_dfw_main)
@@ -308,9 +362,10 @@ def _dfw_main(args):
             'read_section': _dfw_section_read_print,
             'list_rules': _dfw_rule_list_print,
             'read_rule': _dfw_rule_read_print,
+            'read_section_id': _dfw_section_id_read_print,
             }
         command_selector[args.command](client_session, verbose=args.verbose, dfw_section_id=args.dfw_section_id,
-                                       dfw_rule_id=args.dfw_rule_id)
+                                       dfw_rule_id=args.dfw_rule_id, dfw_section_name=args.dfw_section_name)
 
 
     except KeyError:
