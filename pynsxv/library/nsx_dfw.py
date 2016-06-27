@@ -133,14 +133,7 @@ def dfw_section_id_read(client_session, dfw_section_name):
     return dfw_section_id
 
 def _dfw_section_id_read_print(client_session, **kwargs):
-    """
-    TBDONE
-    This function returns the section ID given the section name
-    :param client_session: An instance of an NsxClient Session
-    :param section_name: The name of the section for which the ID is wanted
-    :return returns
-            - the ID of the section ( 0 if the section does not exist )
-    """
+
     if not (kwargs['dfw_section_name']):
         print ('Mandatory parameters missing: [-sname SECTION NAME]')
         return None
