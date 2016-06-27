@@ -98,3 +98,16 @@ You should install a new non-bundled python version:
 
     pip install pyopenssl
     pip install pynsxv
+
+Various caveats
+~~~~~~~~~~~~~~~
+
+Should you see this warning message:
+``UserWarning: /home/vagrant/.python-eggs is writable by group/others and vulnerable to attack when used with get_resource_filename. Consider a more secure location (set with .set_extraction_path or the PYTHON_EGG_CACHE environment variable).``
+
+You can solve this by changing the permissions of the .python-eggs
+folder:
+
+.. code:: shell
+
+    chmod g-wx,o-wx ~/.python-eggs
