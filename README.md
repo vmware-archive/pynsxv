@@ -5,7 +5,7 @@ PyNSXv can be used in two different ways, as a library by importing the files in
 
 **More extensive documentation will follow soon, including python and shell script examples**
 
-# dependencies
+# Dependencies
 PyNSXv has the following dependencies:
 - pyvmomi (https://github.com/vmware/pyvmomi)
 - nsxramlclient (https://github.com/vmware/nsxramlclient)
@@ -22,7 +22,7 @@ pip install pynsxv
 
 ### Installing PyNSXv on a MAC
 
-Make sure to install XCODE and XCODE Command Line utilities:
+Make sure to install XCODE and its Command Line utilities:
 https://itunes.apple.com/app/xcode/id497799835?mt=12 
 
 ```shell
@@ -50,15 +50,26 @@ Finaly we are ready to install PyNSXv using pip:
 sudo pip install pynsxv
 ```
 
-
-NOTE: Some problems with the 'six' library have been seen with OSX 10.11 El Capitan. Details can be found here:
-http://stackoverflow.com/questions/31900008/oserror-errno-1-operation-not-permitted-when-installing-scrapy-in-osx-10-11 
+**NOTE**: OSX 10.11 El Capitan introduces problems due to an outdated dependency `six`. Due to OSX's new System Integrity Protection (SIP) pip cannot remove the outdated version and install the needed one:
+http://apple.stackexchange.com/questions/209572/how-to-use-pip-after-the-os-x-el-capitan-upgrade/210021#210021
+http://stackoverflow.com/questions/31900008/oserror-errno-1-operation-not-permitted-when-installing-scrapy-in-osx-10-11
 
 If you run into this error:
 
 `OSError: [Errno 1] Operation not permitted: '/tmp/pip-nIfswi-uninstall/System/Library/Frameworks/Python.framework/Versions/2.7/Extras/lib/python/six-1.4.1-py2.7.egg-info'` 
 
-Simply install PyNSXv with the `--ignore-installed` flag:
+You should install a new non-bundled python version:
 ```shell
-sudo pip install --ignore-installed pynsxv
+brew install python
+
+sudo pip uninstall pynsxv
+sudo pip uninstall six
+sudo pip uninstall PyYAML
+sudo pip uninstall pyraml-parser
+sudo pip uninstall nsxramlclient
+
+pip install pyopenssl
+pip install pynsxv
 ```
+
+
