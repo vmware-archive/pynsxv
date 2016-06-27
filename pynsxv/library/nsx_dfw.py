@@ -52,6 +52,21 @@ def dfw_section_list(client_session):
     l3r_section_list = []
     l3_section_list = []
 
+    if type(l2_dfw_sections) is not list:
+        keys_and_values = zip(dict.keys(l2_dfw_sections),dict.values(l2_dfw_sections))
+        l2_dfw_sections = list()
+        l2_dfw_sections.append(dict(keys_and_values))
+
+    if type(l3_dfw_sections) is not list:
+        keys_and_values = zip(dict.keys(l3_dfw_sections),dict.values(l3_dfw_sections))
+        l3_dfw_sections = list()
+        l3_dfw_sections.append(dict(keys_and_values))
+
+    if type(l3r_dfw_sections) is not list:
+        keys_and_values = zip(dict.keys(l3r_dfw_sections),dict.values(l3r_dfw_sections))
+        l3r_dfw_sections = list()
+        l3r_dfw_sections.append(dict(keys_and_values))
+
     for sl in l2_dfw_sections:
         try:
             section_name = sl['@name']
@@ -104,14 +119,36 @@ def dfw_rule_list(client_session):
     l2_dfw_sections = all_dfw_sections[0]['layer2Sections']['section']
     l3r_dfw_sections = all_dfw_sections[0]['layer3RedirectSections']['section']
     l3_dfw_sections = all_dfw_sections[0]['layer3Sections']['section']
-    #print ''
+
+    if type(l2_dfw_sections) is not list:
+        keys_and_values = zip(dict.keys(l2_dfw_sections),dict.values(l2_dfw_sections))
+        l2_dfw_sections = list()
+        l2_dfw_sections.append(dict(keys_and_values))
+    #print ' l2 section '
     #print l2_dfw_sections
     #print ''
+
+    if type(l3_dfw_sections) is not list:
+        keys_and_values = zip(dict.keys(l3_dfw_sections),dict.values(l3_dfw_sections))
+        l3_dfw_sections = list()
+        l3_dfw_sections.append(dict(keys_and_values))
+    #print ' l3 section '
+    #print l3_dfw_sections
+
+    if type(l3r_dfw_sections) is not list:
+        keys_and_values = zip(dict.keys(l3r_dfw_sections),dict.values(l3r_dfw_sections))
+        l3r_dfw_sections = list()
+        l3r_dfw_sections.append(dict(keys_and_values))
+    #print ' l3r section '
+    #print l3r_dfw_sections
 
     if 'rule' in l2_dfw_sections[0]:
         rule_list = list()
         for sptr in l2_dfw_sections:
             section_rules = client_session.normalize_list_return(sptr['rule'])
+            #print 'section rules'
+            #print section_rules
+            #print ''
             l2_rule_list = dfw_rule_list_helper(client_session, section_rules, rule_list)
     else:
         l2_rule_list = []
@@ -199,15 +236,15 @@ def dfw_section_read(client_session, dfw_section_id):
     :param client_session: An instance of an NsxClient Session
     :param dfw_section_id: The ID of the dfw section to retrieve details from
     :return: returns
-            - a list with item 0 containing the section name as string, item 1 containing the section id as string,
-            item 2 containing the section type, item 3 containing the section etag as a string
-            - ( verbose option ) a list of dictionaries containing all sections's details
+            - a tabular view of the section with the following information: Name, Section id, Section type, Etag
+            - ( verbose option ) a dictionary containing all sections's details
     """
     section_list = []
     dfw_section_id = str(dfw_section_id)
     uri_parameters={'sectionId': dfw_section_id}
 
-    dfwL3_section_details = client_session.read('dfwL3SectionId', uri_parameters)
+    dfwL3_section_details = dict(client_session.read('dfwL3SectionId', uri_parameters))
+    #return dfwL3_section_details
     #dfwL2_section_details = client_session.read('dfwL2SectionId', uri_parameters)
 
     section_name = dfwL3_section_details['body']['section']['@name']
@@ -226,7 +263,7 @@ def _dfw_section_read_print(client_session, **kwargs):
     section_list, dfwL3_section_details = dfw_section_read(client_session, dfw_section_id)
 
     if kwargs['verbose']:
-        print dfwL3_section_details
+        print dfwL3_section_details['body']
     else:
         print tabulate(section_list, headers=["Name", "ID", "Type", "Etag"], tablefmt="psql")
 
@@ -261,11 +298,6 @@ def _dfw_main(args):
 
     config = ConfigParser.ConfigParser()
     assert config.read(args.ini), 'could not read config file {}'.format(args.ini)
-
-    #if args.section_id:
-    #    dfw_section_id = args.section_id
-    #    dfw_section_id = str(dfw_section_id)
-    #    uri_parameters={'sectionId': dfw_section_id}
 
     client_session = NsxClient(config.get('nsxraml', 'nsxraml_file'), config.get('nsxv', 'nsx_manager'),
                                config.get('nsxv', 'nsx_username'), config.get('nsxv', 'nsx_password'), debug=debug)
