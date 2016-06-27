@@ -32,6 +32,7 @@ from libutils import get_datacentermoid, get_edgeresourcepoolmoid, get_edge, get
 from tabulate import tabulate
 from nsxramlclient.client import NsxClient
 from argparse import RawTextHelpFormatter
+from pkg_resources import resource_filename
 
 
 def dlr_add_interface(client_session, dlr_id, interface_ls_id, interface_ip, interface_subnet):
@@ -465,7 +466,8 @@ def _dlr_main(args):
     try:
         nsxramlfile = config.get('nsxraml', 'nsxraml_file')
     except (ConfigParser.NoSectionError):
-        nsxramlfile = 'api_spec/nsxvapi.raml'
+        nsxramlfile_dir = resource_filename(__name__, 'api_spec')
+        nsxramlfile = '{}/nsxvapi.raml'.format(nsxramlfile_dir)
 
     client_session = NsxClient(nsxramlfile, config.get('nsxv', 'nsx_manager'),
                                config.get('nsxv', 'nsx_username'), config.get('nsxv', 'nsx_password'), debug=debug)

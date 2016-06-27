@@ -31,6 +31,7 @@ from nsxramlclient.client import NsxClient
 from libutils import connect_to_vc
 from libutils import VIM_TYPES
 from libutils import get_all_objs
+from pkg_resources import resource_filename
 
 
 def host_prep_state(session):
@@ -141,7 +142,8 @@ def _usage_main(args):
     try:
         nsxramlfile = config.get('nsxraml', 'nsxraml_file')
     except (ConfigParser.NoSectionError):
-        nsxramlfile = 'api_spec/nsxvapi.raml'
+        nsxramlfile_dir = resource_filename(__name__, 'api_spec')
+        nsxramlfile = '{}/nsxvapi.raml'.format(nsxramlfile_dir)
 
     client_session = NsxClient(nsxramlfile, config.get('nsxv', 'nsx_manager'),
                                config.get('nsxv', 'nsx_username'), config.get('nsxv', 'nsx_password'), debug=debug)
