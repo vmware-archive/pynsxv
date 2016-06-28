@@ -143,6 +143,65 @@ def _dfw_section_id_read_print(client_session, **kwargs):
 
 
 
+def dfw_rule_id_read(client_session, dfw_section_id, dfw_rule_name):
+    """
+    This function returns the rule(s) ID(s) given a section id and a rule name
+    :param client_session: An instance of an NsxClient Session
+    :param rule_name: The name ( case sensitive ) of the rule for which the ID is/are wanted. If rhe name includes
+                      includes spaces, enclose it between ""
+    :param section:id: The id of the section where the rule must be searched
+    :return returns
+            - A dictionary with the rule name as the key and a list as a value. The list contains all the matching
+              rules id(s). For example {'RULE_ONE': [1013, 1012]}. If no matching rule exist, an empty dictionary is
+              returned
+    """
+
+    l2_rule_list, l3_rule_list, l3r_rule_list = dfw_rule_list(client_session)
+
+    print l2_rule_list
+    print l3_rule_list
+    print l3r_rule_list
+
+    list_names = list()
+    list_ids = list()
+    dfw_rule_name = str(dfw_rule_name)
+    #dfw_rule_name = dfw_rule_name.strip()
+    dfw_section_id = str(dfw_section_id)
+
+    for i, val in enumerate(l2_rule_list):
+        if (dfw_rule_name == val[1]) and (dfw_section_id == val[-1]):
+            list_names.append(dfw_rule_name)
+            list_ids.append(int(val[0]))
+
+    for i, val in enumerate(l3_rule_list):
+        if (dfw_rule_name == val[1]) and (dfw_section_id == val[-1]):
+            list_names.append(dfw_rule_name)
+            list_ids.append(int(val[0]))
+
+    for i, val in enumerate(l3r_rule_list):
+        if (dfw_rule_name == val[1]) and (dfw_section_id == val[-1]):
+            list_names.append(dfw_rule_name)
+            list_ids.append(int(val[0]))
+
+    dfw_rule_id = dict.fromkeys(list_names, list_ids)
+    return dfw_rule_id
+
+def _dfw_rule_id_read_print(client_session, **kwargs):
+
+    if not (kwargs['dfw_rule_name']):
+        print ('Mandatory parameters missing: [-rname RULE NAME (use "" if name includes spaces)]')
+        return None
+    if not (kwargs['dfw_section_id']):
+        print ('Mandatory parameters missing: [-sid SECTION ID]')
+        return None
+    dfw_section_id = str(kwargs['dfw_section_id'])
+    dfw_rule_name = str(kwargs['dfw_rule_name'])
+
+    dfw_rule_id = dfw_rule_id_read(client_session, dfw_section_id, dfw_rule_name)
+    print dfw_rule_id
+
+
+
 
 def dfw_rule_list(client_session):
     """
@@ -166,9 +225,6 @@ def dfw_rule_list(client_session):
         keys_and_values = zip(dict.keys(l2_dfw_sections),dict.values(l2_dfw_sections))
         l2_dfw_sections = list()
         l2_dfw_sections.append(dict(keys_and_values))
-    #print ' l2 section '
-    #print l2_dfw_sections
-    #print ''
 
     if type(l3_dfw_sections) is not list:
         keys_and_values = zip(dict.keys(l3_dfw_sections),dict.values(l3_dfw_sections))
@@ -184,17 +240,21 @@ def dfw_rule_list(client_session):
     #print ' l3r section '
     #print l3r_dfw_sections
 
+    for i, val in enumerate(l2_dfw_sections):
+        if 'rule' not in val:
+            del l2_dfw_sections[i]
     if 'rule' in l2_dfw_sections[0]:
         rule_list = list()
         for sptr in l2_dfw_sections:
             section_rules = client_session.normalize_list_return(sptr['rule'])
-            #print 'section rules'
-            #print section_rules
-            #print ''
             l2_rule_list = dfw_rule_list_helper(client_session, section_rules, rule_list)
     else:
         l2_rule_list = []
 
+
+    for i, val in enumerate(l3_dfw_sections):
+        if 'rule' not in val:
+            del l3_dfw_sections[i]
     if 'rule' in l3_dfw_sections[0]:
         rule_list = list()
         for sptr in l3_dfw_sections:
@@ -203,6 +263,9 @@ def dfw_rule_list(client_session):
     else:
         l3_rule_list = []
 
+    for i, val in enumerate(l3r_dfw_sections):
+        if 'rule' not in val:
+            del l3r_dfw_sections[i]
     if 'rule' in l3r_dfw_sections[0]:
         rule_list = list()
         for sptr in l3r_dfw_sections:
@@ -322,6 +385,7 @@ def contruct_parser(subparsers):
     read_section_id: return the id of a section given its name (case sensitive)
     list_rules:      return a list of all distributed firewall's rules
     read_rule:       return the details of a dfw rule given its id
+    read_rule_id:    return the id of a rule given its name and the id of the section to which it belongs
     """)
 
     parser.add_argument("-sid",
@@ -333,6 +397,10 @@ def contruct_parser(subparsers):
     parser.add_argument("-sname",
                         "--dfw_section_name",
                         help="dfw section name")
+    parser.add_argument("-rname",
+                        "--dfw_rule_name",
+                        help="dfw rule name")
+
 
 
     parser.set_defaults(func=_dfw_main)
@@ -356,9 +424,11 @@ def _dfw_main(args):
             'list_rules': _dfw_rule_list_print,
             'read_rule': _dfw_rule_read_print,
             'read_section_id': _dfw_section_id_read_print,
+            'read_rule_id': _dfw_rule_id_read_print,
             }
         command_selector[args.command](client_session, verbose=args.verbose, dfw_section_id=args.dfw_section_id,
-                                       dfw_rule_id=args.dfw_rule_id, dfw_section_name=args.dfw_section_name)
+                                       dfw_rule_id=args.dfw_rule_id, dfw_section_name=args.dfw_section_name,
+                                       dfw_rule_name=args.dfw_rule_name)
 
 
     except KeyError:
