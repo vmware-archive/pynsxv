@@ -101,6 +101,63 @@ def _dfw_section_list_print(client_session, **kwargs):
 
 
 
+def dfw_section_delete(client_session, section_id):
+    """
+    This function delete a section given its id
+    :param client_session: An instance of an NsxClient Session
+    :param section_name: The id of the section that must be deleted
+    :return returns
+            - A table containing these information: Return Code (True/False), Section ID, Section Name, Section Type
+            - ( verbose option ) A list containing a single list which elements are Return Code (True/False),
+              Section ID, Section Name, Section Type
+
+            If there is no matching list
+                - Return Code is set to False
+                - Section ID is set to the value passed as input parameter
+                - Section Name is set to "---"
+                - Section Type is set to "---"
+    """
+    l2_section_list, l3r_section_list, l3_section_list, detailed_dfw_sections = dfw_section_list(client_session)
+    #print l2_section_list
+    #print l3_section_list
+    #print l3r_section_list
+    #return
+    dfw_section_id = str(section_id)
+    result = list()
+
+    for i, val in enumerate(l3_section_list):
+        if dfw_section_id == str(val[1]):
+            client_session.delete('dfwL3SectionId', uri_parameters={'sectionId': dfw_section_id})
+            result = [["True", dfw_section_id, str(val[0]), str(val[-1])]]
+            return result
+
+    for i, val in enumerate(l2_section_list):
+        if dfw_section_id == str(val[1]):
+            client_session.delete('dfwL2SectionId', uri_parameters={'sectionId': dfw_section_id})
+            result = [["True", dfw_section_id, str(val[0]), str(val[-1])]]
+            return result
+
+    for i, val in enumerate(l3r_section_list):
+        if dfw_section_id == str(val[1]):
+            result = [["False", dfw_section_id, str(val[0]), str(val[-1])]]
+            return result
+
+    result = [["False", dfw_section_id, "---", "---"]]
+    return result
+
+def _dfw_section_delete_print(client_session, **kwargs):
+    if not (kwargs['dfw_section_id']):
+        print ('Mandatory parameters missing: [-sid SECTION ID]')
+        return None
+    section_id = kwargs['dfw_section_id']
+    result = dfw_section_delete(client_session, section_id)
+
+    if kwargs['verbose']:
+        print result
+    else:
+        print tabulate(result, headers=["Return Code", "Section ID", "Section Name", "Section Type"], tablefmt="psql")
+
+
 def dfw_section_id_read(client_session, dfw_section_name):
     """
     This function returns the section(s) ID(s) given a section name
@@ -386,6 +443,7 @@ def contruct_parser(subparsers):
     list_rules:      return a list of all distributed firewall's rules
     read_rule:       return the details of a dfw rule given its id
     read_rule_id:    return the id of a rule given its name and the id of the section to which it belongs
+    delete_section:  delete a section given its id
     """)
 
     parser.add_argument("-sid",
@@ -425,6 +483,7 @@ def _dfw_main(args):
             'read_rule': _dfw_rule_read_print,
             'read_section_id': _dfw_section_id_read_print,
             'read_rule_id': _dfw_rule_id_read_print,
+            'delete_section': _dfw_section_delete_print,
             }
         command_selector[args.command](client_session, verbose=args.verbose, dfw_section_id=args.dfw_section_id,
                                        dfw_rule_id=args.dfw_rule_id, dfw_section_name=args.dfw_section_name,
