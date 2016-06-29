@@ -139,7 +139,8 @@ def dfw_section_delete(client_session, section_id):
 
     for i, val in enumerate(l3r_section_list):
         if dfw_section_id == str(val[1]):
-            result = [["False", dfw_section_id, str(val[0]), str(val[-1])]]
+            client_session.delete('section', uri_parameters={'section': dfw_section_id})
+            result = [["True", dfw_section_id, str(val[0]), str(val[-1])]]
             return result
 
     result = [["False", dfw_section_id, "---", "---"]]
@@ -156,6 +157,78 @@ def _dfw_section_delete_print(client_session, **kwargs):
         print result
     else:
         print tabulate(result, headers=["Return Code", "Section ID", "Section Name", "Section Type"], tablefmt="psql")
+
+
+
+def dfw_rule_delete(client_session, rule_id):
+    """
+    TBD
+    This function delete a section given its id
+    :param client_session: An instance of an NsxClient Session
+    :param section_name: The id of the section that must be deleted
+    :return returns
+            - A table containing these information: Return Code (True/False), Section ID, Section Name, Section Type
+            - ( verbose option ) A list containing a single list which elements are Return Code (True/False),
+              Section ID, Section Name, Section Type
+
+            If there is no matching list
+                - Return Code is set to False
+                - Section ID is set to the value passed as input parameter
+                - Section Name is set to "---"
+                - Section Type is set to "---"
+    """
+    l2_rule_list, l3_rule_list, l3r_rule_list = dfw_rule_list(client_session)
+    #print l2_rule_list
+    #print l3_rule_list
+    #print l3r_rule_list
+    #return
+    dfw_rule_id = str(rule_id)
+
+    for i, val in enumerate(l3_rule_list):
+        if dfw_rule_id == str(val[0]):
+            dfw_section_id = str(val[-1])
+            section_list, dfwL3_section_details = dfw_section_read(client_session, dfw_section_id)
+            etag = str(section_list[0][3])
+            client_session.delete('dfwL3Rule', uri_parameters={'ruleId': dfw_rule_id, 'sectionId': dfw_section_id },
+                                  additional_headers={'If-match': etag})
+            result = [["True", dfw_rule_id, str(val[1]), str(val[-2]), str(val[-1])]]
+            return result
+
+    for i, val in enumerate(l2_rule_list):
+        if dfw_rule_id == str(val[0]):
+            dfw_section_id = str(val[-1])
+            section_list, dfwL2_section_details = dfw_section_read(client_session, dfw_section_id)
+            etag = str(section_list[0][3])
+            client_session.delete('dfwL2Rule', uri_parameters={'ruleId': dfw_rule_id, 'sectionId': dfw_section_id},
+                                  additional_headers={'If-match': etag})
+            result = [["True", dfw_rule_id, str(val[1]), str(val[-2]), str(val[-1])]]
+            return result
+
+    for i, val in enumerate(l3r_rule_list):
+        if dfw_rule_id == str(val[0]):
+            dfw_section_id = str(val[-1])
+            section_list, dfwL3r_section_details = dfw_section_read(client_session, dfw_section_id)
+            etag = str(section_list[0][3])
+            client_session.delete('rule', uri_parameters={'ruleID': dfw_rule_id, 'section': dfw_section_id})
+            result = [["True", dfw_rule_id, str(val[1]), str(val[-2]), str(val[-1])]]
+            return result
+
+    result = [["False", dfw_rule_id, "---", "---", "---"]]
+    return result
+
+def _dfw_rule_delete_print(client_session, **kwargs):
+    if not (kwargs['dfw_rule_id']):
+        print ('Mandatory parameters missing: [-rid RULE ID]')
+        return None
+    rule_id = kwargs['dfw_rule_id']
+    result = dfw_rule_delete(client_session, rule_id)
+
+    if kwargs['verbose']:
+        print result
+    else:
+        print tabulate(result, headers=["Return Code", "Rule ID", "Rule Name", "Applied-To", "Section ID"],
+                       tablefmt="psql")
+
 
 
 def dfw_section_id_read(client_session, dfw_section_name):
@@ -259,7 +332,6 @@ def _dfw_rule_id_read_print(client_session, **kwargs):
 
 
 
-
 def dfw_rule_list(client_session):
     """
     This function returns all the rules of the NSX distributed firewall
@@ -300,11 +372,12 @@ def dfw_rule_list(client_session):
     for i, val in enumerate(l2_dfw_sections):
         if 'rule' not in val:
             del l2_dfw_sections[i]
-    if 'rule' in l2_dfw_sections[0]:
-        rule_list = list()
-        for sptr in l2_dfw_sections:
-            section_rules = client_session.normalize_list_return(sptr['rule'])
-            l2_rule_list = dfw_rule_list_helper(client_session, section_rules, rule_list)
+    if len(l2_dfw_sections) > 0:
+        if 'rule' in l2_dfw_sections[0]:
+            rule_list = list()
+            for sptr in l2_dfw_sections:
+                section_rules = client_session.normalize_list_return(sptr['rule'])
+                l2_rule_list = dfw_rule_list_helper(client_session, section_rules, rule_list)
     else:
         l2_rule_list = []
 
@@ -312,22 +385,25 @@ def dfw_rule_list(client_session):
     for i, val in enumerate(l3_dfw_sections):
         if 'rule' not in val:
             del l3_dfw_sections[i]
-    if 'rule' in l3_dfw_sections[0]:
-        rule_list = list()
-        for sptr in l3_dfw_sections:
-            section_rules = client_session.normalize_list_return(sptr['rule'])
-            l3_rule_list = dfw_rule_list_helper(client_session, section_rules, rule_list)
+    if len(l3_dfw_sections) > 0:
+        if 'rule' in l3_dfw_sections[0]:
+            rule_list = list()
+            for sptr in l3_dfw_sections:
+                section_rules = client_session.normalize_list_return(sptr['rule'])
+                l3_rule_list = dfw_rule_list_helper(client_session, section_rules, rule_list)
     else:
         l3_rule_list = []
+
 
     for i, val in enumerate(l3r_dfw_sections):
         if 'rule' not in val:
             del l3r_dfw_sections[i]
-    if 'rule' in l3r_dfw_sections[0]:
-        rule_list = list()
-        for sptr in l3r_dfw_sections:
-            section_rules = client_session.normalize_list_return(sptr['rule'])
-            l3r_rule_list = dfw_rule_list_helper(client_session, section_rules, rule_list)
+    if len(l3r_dfw_sections) > 0:
+        if 'rule' in l3r_dfw_sections[0]:
+            rule_list = list()
+            for sptr in l3r_dfw_sections:
+                section_rules = client_session.normalize_list_return(sptr['rule'])
+                l3r_rule_list = dfw_rule_list_helper(client_session, section_rules, rule_list)
     else:
         l3r_rule_list = []
 
@@ -351,7 +427,6 @@ def _dfw_rule_list_print(client_session, **kwargs):
         print '*** REDIRECT RULES ***'
         print tabulate(l3r_rule_list, headers=["ID", "Name", "Source", "Destination", "Service", "Action", "Direction",
                                                 "Packet Type", "Applied-To", "ID (Section)"], tablefmt="psql")
-
 
 
 
@@ -444,6 +519,7 @@ def contruct_parser(subparsers):
     read_rule:       return the details of a dfw rule given its id
     read_rule_id:    return the id of a rule given its name and the id of the section to which it belongs
     delete_section:  delete a section given its id
+    delete_rule:     delete a rule given its id
     """)
 
     parser.add_argument("-sid",
@@ -484,6 +560,7 @@ def _dfw_main(args):
             'read_section_id': _dfw_section_id_read_print,
             'read_rule_id': _dfw_rule_id_read_print,
             'delete_section': _dfw_section_delete_print,
+            'delete_rule': _dfw_rule_delete_print,
             }
         command_selector[args.command](client_session, verbose=args.verbose, dfw_section_id=args.dfw_section_id,
                                        dfw_rule_id=args.dfw_rule_id, dfw_section_name=args.dfw_section_name,
