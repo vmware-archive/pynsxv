@@ -1,7 +1,7 @@
 # PyNSXv
-PyNSXv is a higher level python based library (exposing ready to use workflows) and a CLI tool to control NSX for vSphere
+PyNSXv is a high level python based library that exposes ready to use workflows and a CLI tool that can be used to control VMware NSX for vSphere
 
-PyNSXv can be used in two different ways, as a library by importing the files in the /library subdirectory into your code, or as a cli tool by calling `pynsxv`on the CLI after you installed pynsxv using pip on your system
+PyNSXv can be used in two different ways, as a library by importing the files in the /library subdirectory into your code, or as a CLI tool by executing `pynsxv`on the command line after installation. For easier installation please use PIP on your system
 
 **More extensive documentation will follow soon, including python and shell script examples**
 
