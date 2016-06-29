@@ -22,15 +22,15 @@
 # AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.”
 
-__author__ = 'Dimitri Desmidt, Emanuele Mazza, Yves Fauser'
+__author__ = 'Emanuele Mazza'
 
 import argparse
 import ConfigParser
-import json
 from tabulate import tabulate
 from nsxramlclient.client import NsxClient
 from argparse import RawTextHelpFormatter
 from libutils import dfw_rule_list_helper
+from pkg_resources import resource_filename
 
 
 def dfw_section_list(client_session):
@@ -170,7 +170,6 @@ def dfw_section_id_read(client_session, dfw_section_name):
     """
     l2_section_list, l3r_section_list, l3_section_list, detailed_dfw_sections = dfw_section_list(client_session)
     dfw_section_id = list()
-    print dfw_section_id
     dfw_section_name = str(dfw_section_name)
 
     for i,val in enumerate(l3_section_list):
@@ -196,8 +195,14 @@ def _dfw_section_id_read_print(client_session, **kwargs):
         return None
     dfw_section_name = str(kwargs['dfw_section_name'])
     dfw_section_id = dfw_section_id_read(client_session, dfw_section_name)
-    print dfw_section_id
 
+    # TODO: Emanuele, please check if you are fine with my additions bellow. I'm output'ing a csv list when used with -v
+
+    if kwargs['verbose']:
+        print dfw_section_id
+    else:
+        dfw_section_id_csv = ",".join([str(section['Id']) for section in dfw_section_id])
+        print dfw_section_id_csv
 
 
 def dfw_rule_id_read(client_session, dfw_section_id, dfw_rule_name):
@@ -215,13 +220,15 @@ def dfw_rule_id_read(client_session, dfw_section_id, dfw_rule_name):
 
     l2_rule_list, l3_rule_list, l3r_rule_list = dfw_rule_list(client_session)
 
-    print l2_rule_list
-    print l3_rule_list
-    print l3r_rule_list
+    # TODO: Emanuele, please remove the debug print statements below after you are done coding your module
+    #print l2_rule_list
+    #print l3_rule_list
+    #print l3r_rule_list
 
     list_names = list()
     list_ids = list()
     dfw_rule_name = str(dfw_rule_name)
+    # TODO: Emanuele, please remove the debug print statements below after you are done coding your module
     #dfw_rule_name = dfw_rule_name.strip()
     dfw_section_id = str(dfw_section_id)
 
@@ -255,9 +262,15 @@ def _dfw_rule_id_read_print(client_session, **kwargs):
     dfw_rule_name = str(kwargs['dfw_rule_name'])
 
     dfw_rule_id = dfw_rule_id_read(client_session, dfw_section_id, dfw_rule_name)
-    print dfw_rule_id
 
+    # TODO: Emanuele, please check if you are fine with my additions bellow. I'm output'ing a table with the IDs in a csv format in the non -v case
 
+    if kwargs['verbose']:
+        print dfw_rule_id
+    else:
+        dfw_rule_ids_str = [str(ruleid) for ruleid in dfw_rule_id[dfw_rule_name]]
+        dfw_rule_id_csv = ",".join(dfw_rule_ids_str)
+        print tabulate([(dfw_rule_name, dfw_rule_id_csv)], headers=["Rule Name", "Rule IDs"], tablefmt="psql")
 
 
 def dfw_rule_list(client_session):
@@ -287,6 +300,7 @@ def dfw_rule_list(client_session):
         keys_and_values = zip(dict.keys(l3_dfw_sections),dict.values(l3_dfw_sections))
         l3_dfw_sections = list()
         l3_dfw_sections.append(dict(keys_and_values))
+    # TODO: Emanuele, please remove the debug print statements below after you are done coding your module
     #print ' l3 section '
     #print l3_dfw_sections
 
@@ -367,6 +381,7 @@ def dfw_rule_read(client_session, rule_id):
     """
     rule_list = dfw_rule_list(client_session)
     rule = list()
+    # TODO: Emanuele, please remove the debug print statements below after you are done coding your module
     #print ''
     #print rule_list
     #print ''
@@ -406,6 +421,7 @@ def dfw_section_read(client_session, dfw_section_id):
     uri_parameters={'sectionId': dfw_section_id}
 
     dfwL3_section_details = dict(client_session.read('dfwL3SectionId', uri_parameters))
+    # TODO: Emanuele, please remove the debug print statements below after you are done coding your module
     #return dfwL3_section_details
     #dfwL2_section_details = client_session.read('dfwL2SectionId', uri_parameters)
 
@@ -472,8 +488,14 @@ def _dfw_main(args):
     config = ConfigParser.ConfigParser()
     assert config.read(args.ini), 'could not read config file {}'.format(args.ini)
 
-    client_session = NsxClient(config.get('nsxraml', 'nsxraml_file'), config.get('nsxv', 'nsx_manager'),
-                               config.get('nsxv', 'nsx_username'), config.get('nsxv', 'nsx_password'), debug=debug)
+    try:
+        nsxramlfile = config.get('nsxraml', 'nsxraml_file')
+    except (ConfigParser.NoSectionError):
+        nsxramlfile_dir = resource_filename(__name__, 'api_spec')
+        nsxramlfile = '{}/nsxvapi.raml'.format(nsxramlfile_dir)
+
+    client_session = NsxClient(nsxramlfile, config.get('nsxv', 'nsx_manager'), config.get('nsxv', 'nsx_username'),
+                               config.get('nsxv', 'nsx_password'), debug=debug)
 
     try:
         command_selector = {
@@ -488,8 +510,6 @@ def _dfw_main(args):
         command_selector[args.command](client_session, verbose=args.verbose, dfw_section_id=args.dfw_section_id,
                                        dfw_rule_id=args.dfw_rule_id, dfw_section_name=args.dfw_section_name,
                                        dfw_rule_name=args.dfw_rule_name)
-
-
     except KeyError:
         print('Unknown command')
 

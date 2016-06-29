@@ -193,6 +193,7 @@ def dfw_rule_list_helper(client_session, dfw_section, rule_list):
     destination_list = list()
     service_list = list()
     applyto_list = list()
+    # TODO: Emanuele, please remove the debug print statements below after you are done coding your module
     #print ''
     #print dfw_section
     #print source_list
