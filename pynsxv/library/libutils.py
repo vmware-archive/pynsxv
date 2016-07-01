@@ -33,6 +33,8 @@ VIM_TYPES = {'datacenter': [vim.Datacenter],
              'dvs_name': [vim.dvs.VmwareDistributedVirtualSwitch],
              'datastore_name': [vim.Datastore],
              'resourcepool_name': [vim.ResourcePool],
+             'cluster': [vim.ClusterComputeResource],
+             'dvs_portgroup': [vim.DistributedVirtualPortgroup],
              'host': [vim.HostSystem]}
 
 
@@ -82,6 +84,7 @@ def get_mo_by_name(content, searchedname, vim_type):
 def get_all_objs(content, vimtype):
     obj = {}
     container = content.viewManager.CreateContainerView(content.rootFolder, vimtype, True)
+
     for managed_object_ref in container.view:
         obj.update({managed_object_ref: managed_object_ref.name})
     container.Destroy()
@@ -117,11 +120,14 @@ def get_edge(client_session, edge_name):
     :return: A tuple, with the first item being the edge or dlr id as string of the first Scope found with the
              right name and the second item being a dictionary of the logical parameters as return by the NSX API
     """
+
+
     all_edge = client_session.read_all_pages('nsxEdges', 'read')
 
     try:
         edge_params = [scope for scope in all_edge if scope['name'] == edge_name][0]
         edge_id = edge_params['objectId']
+
     except IndexError:
         return None, None
 
@@ -129,51 +135,32 @@ def get_edge(client_session, edge_name):
 
 
 def get_datacentermoid(content, datacenter_name):
-    datacenter_list = content.rootFolder.childEntity
-    for datacenter in datacenter_list:
-        if datacenter.name == datacenter_name:
-            datacentermoid = datacenter._moId
-            return datacentermoid.encode("ascii")
-    return None
-
-
-def get_datastoremoid(content, datacenter_name, edge_datastore):
-    datacenter_list = content.rootFolder.childEntity
-    for datacenter in datacenter_list:
-        if datacenter.name == datacenter_name:
-            for datastore in datacenter.datastore:
-                if datastore.name == edge_datastore:
-                    datastorename = datastore._moId
-                    return datastorename.encode("ascii")
-    return None
-
-
-def get_edgeresourcepoolmoid(content, datacenter_name, edge_cluster):
-    datacenter_list = content.rootFolder.childEntity
-    for datacenter in datacenter_list:
-        if datacenter.name == datacenter_name:
-            cluster_list = datacenter.hostFolder.childEntity
-            for cluster in cluster_list:
-                if cluster.name == edge_cluster:
-                    resourcepoolid = cluster.resourcePool._moId
-                    return resourcepoolid.encode("ascii")
-    return None
-
-
-def get_vdsportgroupid(content, datacenter_name, switch_name):
-    datacenter_list = content.rootFolder.childEntity
-    vdsportgroupid = ""
-    for datacenter in datacenter_list:
-        if datacenter.name == datacenter_name:
-            network_list = datacenter.network
-            for network in network_list:
-                if network.name == switch_name:
-                    vdsportgroupid = network._moId
-    if vdsportgroupid:
-        return vdsportgroupid.encode("ascii")
+    datacenter_mo = get_mo_by_name(content, datacenter_name, VIM_TYPES['datacenter'])
+    if datacenter_mo:
+        return str(datacenter_mo._moId)
     else:
         return None
 
+def get_datastoremoid(content, datacenter_name, edge_datastore):
+    datastore_mo = get_mo_by_name(content, edge_datastore, VIM_TYPES['datastore_name'])
+    if datastore_mo:
+        return str(datastore_mo._moId)
+    else:
+        return None
+
+def get_edgeresourcepoolmoid(content, datacenter_name, edge_cluster):
+    cluser_mo = get_mo_by_name(content, edge_cluster, VIM_TYPES['cluster'])
+    if cluser_mo:
+        return str(cluser_mo._moId)
+    else:
+        return None
+
+def get_vdsportgroupid(content, datacenter_name, switch_name):
+    portgroup_mo = get_mo_by_name(content, switch_name, VIM_TYPES['dvs_portgroup'])
+    if portgroup_mo:
+        return str(portgroup_mo._moId)
+    else:
+        return None
 
 def check_for_parameters(mandatory, args):
     try:
