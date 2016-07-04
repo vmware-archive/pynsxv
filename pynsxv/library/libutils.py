@@ -193,7 +193,10 @@ def dfw_rule_list_helper(client_session, dfw_section, rule_list):
     #print ''
     for rptr in dfw_section:
         rule_id = rptr['@id']
-        rule_name = rptr['name']
+        if 'name' in rptr:
+            rule_name = rptr['name']
+        else:
+            rule_name = str('')
         rule_action = rptr['action']
         rule_direction = rptr['direction']
         rule_packetype = rptr['packetType']

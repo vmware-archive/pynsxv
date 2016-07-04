@@ -22,15 +22,14 @@
 # AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.”
 
-__author__ = 'Dimitri Desmidt, Emanuele Mazza, Yves Fauser'
-
 import argparse
 import ConfigParser
-import json
 from tabulate import tabulate
 from nsxramlclient.client import NsxClient
 from argparse import RawTextHelpFormatter
 from libutils import dfw_rule_list_helper
+
+__author__ = 'Dimitri Desmidt, Emanuele Mazza, Yves Fauser'
 
 
 def dfw_section_list(client_session):
@@ -53,17 +52,17 @@ def dfw_section_list(client_session):
     l3_section_list = []
 
     if type(l2_dfw_sections) is not list:
-        keys_and_values = zip(dict.keys(l2_dfw_sections),dict.values(l2_dfw_sections))
+        keys_and_values = zip(dict.keys(l2_dfw_sections), dict.values(l2_dfw_sections))
         l2_dfw_sections = list()
         l2_dfw_sections.append(dict(keys_and_values))
 
     if type(l3_dfw_sections) is not list:
-        keys_and_values = zip(dict.keys(l3_dfw_sections),dict.values(l3_dfw_sections))
+        keys_and_values = zip(dict.keys(l3_dfw_sections), dict.values(l3_dfw_sections))
         l3_dfw_sections = list()
         l3_dfw_sections.append(dict(keys_and_values))
 
     if type(l3r_dfw_sections) is not list:
-        keys_and_values = zip(dict.keys(l3r_dfw_sections),dict.values(l3r_dfw_sections))
+        keys_and_values = zip(dict.keys(l3r_dfw_sections), dict.values(l3r_dfw_sections))
         l3r_dfw_sections = list()
         l3r_dfw_sections.append(dict(keys_and_values))
 
@@ -90,6 +89,7 @@ def dfw_section_list(client_session):
 
     return l2_section_list, l3r_section_list, l3_section_list, all_dfw_sections
 
+
 def _dfw_section_list_print(client_session, **kwargs):
     l2_section_list, l3r_section_list, l3_section_list, detailed_dfw_sections = dfw_section_list(client_session)
     if kwargs['verbose']:
@@ -100,12 +100,11 @@ def _dfw_section_list_print(client_session, **kwargs):
         print tabulate(l3_section_list, headers=["Name", "ID", "Type"], tablefmt="psql")
 
 
-
 def dfw_section_delete(client_session, section_id):
     """
     This function delete a section given its id
     :param client_session: An instance of an NsxClient Session
-    :param section_name: The id of the section that must be deleted
+    :param section_id: The id of the section that must be deleted
     :return returns
             - A table containing these information: Return Code (True/False), Section ID, Section Name, Section Type
             - ( verbose option ) A list containing a single list which elements are Return Code (True/False),
@@ -118,12 +117,8 @@ def dfw_section_delete(client_session, section_id):
                 - Section Type is set to "---"
     """
     l2_section_list, l3r_section_list, l3_section_list, detailed_dfw_sections = dfw_section_list(client_session)
-    #print l2_section_list
-    #print l3_section_list
-    #print l3r_section_list
-    #return
+
     dfw_section_id = str(section_id)
-    result = list()
 
     for i, val in enumerate(l3_section_list):
         if dfw_section_id == str(val[1]):
@@ -146,6 +141,7 @@ def dfw_section_delete(client_session, section_id):
     result = [["False", dfw_section_id, "---", "---"]]
     return result
 
+
 def _dfw_section_delete_print(client_session, **kwargs):
     if not (kwargs['dfw_section_id']):
         print ('Mandatory parameters missing: [-sid SECTION ID]')
@@ -159,29 +155,22 @@ def _dfw_section_delete_print(client_session, **kwargs):
         print tabulate(result, headers=["Return Code", "Section ID", "Section Name", "Section Type"], tablefmt="psql")
 
 
-
 def dfw_rule_delete(client_session, rule_id):
     """
-    TBD
-    This function delete a section given its id
+    This function delete a dfw rule given its id
     :param client_session: An instance of an NsxClient Session
-    :param section_name: The id of the section that must be deleted
+    :param rule_id: The id of the rule that must be deleted
     :return returns
-            - A table containing these information: Return Code (True/False), Section ID, Section Name, Section Type
+            - A table containing these information: Return Code (True/False), Rule ID, Rule Name, Applied-To, Section ID
             - ( verbose option ) A list containing a single list which elements are Return Code (True/False),
-              Section ID, Section Name, Section Type
+              Rule ID, Rule Name, Applied-To, Section ID
 
-            If there is no matching list
+            If there is no matching rule
                 - Return Code is set to False
-                - Section ID is set to the value passed as input parameter
-                - Section Name is set to "---"
-                - Section Type is set to "---"
+                - Rule ID is set to the value passed as input parameter
+                - All other returned parameters are set to "---"
     """
     l2_rule_list, l3_rule_list, l3r_rule_list = dfw_rule_list(client_session)
-    #print l2_rule_list
-    #print l3_rule_list
-    #print l3r_rule_list
-    #return
     dfw_rule_id = str(rule_id)
 
     for i, val in enumerate(l3_rule_list):
@@ -216,6 +205,7 @@ def dfw_rule_delete(client_session, rule_id):
     result = [["False", dfw_rule_id, "---", "---", "---"]]
     return result
 
+
 def _dfw_rule_delete_print(client_session, **kwargs):
     if not (kwargs['dfw_rule_id']):
         print ('Mandatory parameters missing: [-rid RULE ID]')
@@ -230,12 +220,11 @@ def _dfw_rule_delete_print(client_session, **kwargs):
                        tablefmt="psql")
 
 
-
 def dfw_section_id_read(client_session, dfw_section_name):
     """
     This function returns the section(s) ID(s) given a section name
     :param client_session: An instance of an NsxClient Session
-    :param section_name: The name ( case sensitive ) of the section for which the ID is wanted
+    :param dfw_section_name: The name ( case sensitive ) of the section for which the ID is wanted
     :return returns
             - A list of dictionaries. Each dictionary contains the type and the id of each section with named as
               specified by the input parameter. If no such section exist, the list contain a single dictionary with
@@ -246,21 +235,22 @@ def dfw_section_id_read(client_session, dfw_section_name):
     print dfw_section_id
     dfw_section_name = str(dfw_section_name)
 
-    for i,val in enumerate(l3_section_list):
+    for i, val in enumerate(l3_section_list):
         if str(val[0]) == dfw_section_name:
             dfw_section_id.append({'Type': str(val[2]), 'Id': int(val[1])})
 
-    for i,val in enumerate(l3r_section_list):
+    for i, val in enumerate(l3r_section_list):
         if str(val[0]) == dfw_section_name:
             dfw_section_id.append({'Type': str(val[2]), 'Id': int(val[1])})
 
-    for i,val in enumerate(l2_section_list):
+    for i, val in enumerate(l2_section_list):
         if str(val[0]) == dfw_section_name:
             dfw_section_id.append({'Type': str(val[2]), 'Id': int(val[1])})
 
     if len(dfw_section_id) == 0:
         dfw_section_id.append({'Type': 0, 'Id': 0})
     return dfw_section_id
+
 
 def _dfw_section_id_read_print(client_session, **kwargs):
 
@@ -272,14 +262,13 @@ def _dfw_section_id_read_print(client_session, **kwargs):
     print dfw_section_id
 
 
-
 def dfw_rule_id_read(client_session, dfw_section_id, dfw_rule_name):
     """
     This function returns the rule(s) ID(s) given a section id and a rule name
     :param client_session: An instance of an NsxClient Session
-    :param rule_name: The name ( case sensitive ) of the rule for which the ID is/are wanted. If rhe name includes
+    :param dfw_rule_name: The name ( case sensitive ) of the rule for which the ID is/are wanted. If rhe name includes
                       includes spaces, enclose it between ""
-    :param section:id: The id of the section where the rule must be searched
+    :param dfw_section_id: The id of the section where the rule must be searched
     :return returns
             - A dictionary with the rule name as the key and a list as a value. The list contains all the matching
               rules id(s). For example {'RULE_ONE': [1013, 1012]}. If no matching rule exist, an empty dictionary is
@@ -288,14 +277,9 @@ def dfw_rule_id_read(client_session, dfw_section_id, dfw_rule_name):
 
     l2_rule_list, l3_rule_list, l3r_rule_list = dfw_rule_list(client_session)
 
-    print l2_rule_list
-    print l3_rule_list
-    print l3r_rule_list
-
     list_names = list()
     list_ids = list()
     dfw_rule_name = str(dfw_rule_name)
-    #dfw_rule_name = dfw_rule_name.strip()
     dfw_section_id = str(dfw_section_id)
 
     for i, val in enumerate(l2_rule_list):
@@ -316,6 +300,7 @@ def dfw_rule_id_read(client_session, dfw_section_id, dfw_rule_name):
     dfw_rule_id = dict.fromkeys(list_names, list_ids)
     return dfw_rule_id
 
+
 def _dfw_rule_id_read_print(client_session, **kwargs):
 
     if not (kwargs['dfw_rule_name']):
@@ -329,7 +314,6 @@ def _dfw_rule_id_read_print(client_session, **kwargs):
 
     dfw_rule_id = dfw_rule_id_read(client_session, dfw_section_id, dfw_rule_name)
     print dfw_rule_id
-
 
 
 def dfw_rule_list(client_session):
@@ -351,27 +335,26 @@ def dfw_rule_list(client_session):
     l3_dfw_sections = all_dfw_sections[0]['layer3Sections']['section']
 
     if type(l2_dfw_sections) is not list:
-        keys_and_values = zip(dict.keys(l2_dfw_sections),dict.values(l2_dfw_sections))
+        keys_and_values = zip(dict.keys(l2_dfw_sections), dict.values(l2_dfw_sections))
         l2_dfw_sections = list()
         l2_dfw_sections.append(dict(keys_and_values))
 
     if type(l3_dfw_sections) is not list:
-        keys_and_values = zip(dict.keys(l3_dfw_sections),dict.values(l3_dfw_sections))
+        keys_and_values = zip(dict.keys(l3_dfw_sections), dict.values(l3_dfw_sections))
         l3_dfw_sections = list()
         l3_dfw_sections.append(dict(keys_and_values))
-    #print ' l3 section '
-    #print l3_dfw_sections
 
     if type(l3r_dfw_sections) is not list:
-        keys_and_values = zip(dict.keys(l3r_dfw_sections),dict.values(l3r_dfw_sections))
+        keys_and_values = zip(dict.keys(l3r_dfw_sections), dict.values(l3r_dfw_sections))
         l3r_dfw_sections = list()
         l3r_dfw_sections.append(dict(keys_and_values))
-    #print ' l3r section '
-    #print l3r_dfw_sections
 
+    l2_temp = list()
+    l2_rule_list = list()
     for i, val in enumerate(l2_dfw_sections):
-        if 'rule' not in val:
-            del l2_dfw_sections[i]
+        if 'rule' in val:
+            l2_temp.append(l2_dfw_sections[i])
+    l2_dfw_sections = l2_temp
     if len(l2_dfw_sections) > 0:
         if 'rule' in l2_dfw_sections[0]:
             rule_list = list()
@@ -381,10 +364,12 @@ def dfw_rule_list(client_session):
     else:
         l2_rule_list = []
 
-
+    l3_temp = list()
+    l3_rule_list = list()
     for i, val in enumerate(l3_dfw_sections):
-        if 'rule' not in val:
-            del l3_dfw_sections[i]
+        if 'rule' in val:
+            l3_temp.append(l3_dfw_sections[i])
+    l3_dfw_sections = l3_temp
     if len(l3_dfw_sections) > 0:
         if 'rule' in l3_dfw_sections[0]:
             rule_list = list()
@@ -394,10 +379,12 @@ def dfw_rule_list(client_session):
     else:
         l3_rule_list = []
 
-
+    l3r_temp = list()
+    l3r_rule_list = list()
     for i, val in enumerate(l3r_dfw_sections):
-        if 'rule' not in val:
-            del l3r_dfw_sections[i]
+        if 'rule' in val:
+            l3r_temp.append(l3r_dfw_sections[i])
+    l3r_dfw_sections = l3r_temp
     if len(l3r_dfw_sections) > 0:
         if 'rule' in l3r_dfw_sections[0]:
             rule_list = list()
@@ -408,6 +395,7 @@ def dfw_rule_list(client_session):
         l3r_rule_list = []
 
     return l2_rule_list, l3_rule_list, l3r_rule_list
+
 
 def _dfw_rule_list_print(client_session, **kwargs):
     l2_rule_list, l3_rule_list, l3r_rule_list = dfw_rule_list(client_session)
@@ -426,13 +414,12 @@ def _dfw_rule_list_print(client_session, **kwargs):
         print''
         print '*** REDIRECT RULES ***'
         print tabulate(l3r_rule_list, headers=["ID", "Name", "Source", "Destination", "Service", "Action", "Direction",
-                                                "Packet Type", "Applied-To", "ID (Section)"], tablefmt="psql")
-
+                                               "Packet Type", "Applied-To", "ID (Section)"], tablefmt="psql")
 
 
 def dfw_rule_read(client_session, rule_id):
     """
-    This funtions retrieves details of a dfw rule given its id
+    This function retrieves details of a dfw rule given its id
     :param client_session: An instance of an NsxClient Session
     :param rule_id: The ID of the dfw rule to retrieve
     :return: returns
@@ -442,16 +429,13 @@ def dfw_rule_read(client_session, rule_id):
     """
     rule_list = dfw_rule_list(client_session)
     rule = list()
-    #print ''
-    #print rule_list
-    #print ''
+
     for sectionptr in rule_list:
         for ruleptr in sectionptr:
             if ruleptr[0] == str(rule_id):
                 rule.append(ruleptr)
-                #for data in ruleptr:
-                    #rule.append(data)
     return rule
+
 
 def _dfw_rule_read_print(client_session, **kwargs):
     if not (kwargs['dfw_rule_id']):
@@ -463,13 +447,108 @@ def _dfw_rule_read_print(client_session, **kwargs):
         print rule
     else:
         print tabulate(rule, headers=["ID", "Name", "Source", "Destination", "Service", "Action", "Direction",
-                                              "Packet Type", "Applied-To", "ID (Section)"], tablefmt="psql")
+                                      "Packet Type", "Applied-To", "ID (Section)"], tablefmt="psql")
 
+
+def dfw_rule_source_delete(client_session, rule_id, source):
+    """
+    This function delete one of the sources of a dfw rule given the rule id and the source to be deleted
+    :param client_session: An instance of an NsxClient Session
+    :param rule_id: The ID of the dfw rule to retrieve
+    :param source: The source of the dfw rule to be deleted. If the source name contains any space, then it must be
+                   enclosed in double quotes (like "VM Network")
+    :return: returns
+            - tabular view of the dfw rule after the deletion process has been performed
+            - ( verbose option ) a list containing a list with the following dfw rule informations after the deletion
+              process has been performed: ID(Rule)- Name(Rule)- Source- Destination- Services- Action - Direction-
+              Pktytpe- AppliedTo- ID(section)
+    """
+
+    source = str(source)
+    rule = dfw_rule_read(client_session, rule_id)
+
+    if len(rule) == 0:
+        # It means a rule with id = rule_id does not exist
+        result = [[rule_id, "---", source, "---", "---", "---", "---", "---", "---", "---"]]
+        return result
+
+    # Get the rule data structure that will be modified and then piped into the update function
+    section_list = dfw_section_list(client_session)
+    sections = [section_list[0], section_list[1], section_list[2]]
+    section_id = rule[0][-1]
+
+    rule_type_selector = ''
+    for scan in sections:
+        for val in scan:
+            if val[1] == section_id:
+                rule_type_selector = val[2]
+
+    if rule_type_selector == '':
+        print 'ERROR: RULE TYPE SELECTOR CANNOT BE EMPTY - ABORT !'
+        return
+    if rule_type_selector == 'LAYER2':
+        rule_type = 'dfwL2Rule'
+    elif rule_type_selector == 'LAYER3':
+        rule_type = 'dfwL3Rule'
+    else:
+        rule_type = 'rule'
+
+    rule_schema = client_session.read(rule_type, uri_parameters={'ruleId': rule_id, 'sectionId': section_id})
+    rule_etag = rule_schema.items()[-1][1]
+
+    if 'sources' not in rule_schema.items()[1][1]['rule']:
+        # It means the only source is "any" and it cannot be deleted short of deleting the whole rule
+        rule = dfw_rule_read(client_session, rule_id)
+        return rule
+
+    if type(rule_schema.items()[1][1]['rule']['sources']['source']) == list:
+        # It means there are more than one sources, each one with his own dict
+        sources_list = rule_schema.items()[1][1]['rule']['sources']['source']
+        for i, val in enumerate(sources_list):
+            if val['type'] == 'Ipv4Address' and val['value'] == source or 'name' in val and val['name'] == source:
+                del rule_schema.items()[1][1]['rule']['sources']['source'][i]
+
+        # The order dict "rule_schema" must be parsed to find the dict that will be piped into the update function
+        rule = client_session.update(rule_type, uri_parameters={'ruleId': rule_id, 'sectionId': section_id},
+                                     request_body_dict=rule_schema.items()[1][1],
+                                     additional_headers={'If-match': rule_etag})
+        rule = dfw_rule_read(client_session, rule_id)
+        return rule
+
+    if type(rule_schema.items()[1][1]['rule']['sources']['source']) == dict:
+        # It means there is just one explicit source with his dict
+        source_dict = rule_schema.items()[1][1]['rule']['sources']['source']
+        if source_dict['type'] == 'Ipv4Address' and source_dict['value'] == source or \
+                                  'name' in dict.keys(source_dict) and source_dict['name'] == source:
+            del rule_schema.items()[1][1]['rule']['sources']
+            rule = client_session.update(rule_type, uri_parameters={'ruleId': rule_id, 'sectionId': section_id},
+                                         request_body_dict=rule_schema.items()[1][1],
+                                         additional_headers={'If-match': rule_etag})
+
+        rule = dfw_rule_read(client_session, rule_id)
+        return rule
+
+
+def _dfw_rule_source_delete_print(client_session, **kwargs):
+    if not (kwargs['dfw_rule_id']):
+        print ('Mandatory parameters missing: [-rid RULE ID]')
+        return None
+    if not (kwargs['dfw_rule_source']):
+        print ('Mandatory parameters missing: [-src RULE SOURCE]')
+        return None
+    rule_id = kwargs['dfw_rule_id']
+    source = kwargs['dfw_rule_source']
+    rule = dfw_rule_source_delete(client_session, rule_id, source)
+    if kwargs['verbose']:
+        print rule
+    else:
+        print tabulate(rule, headers=["ID", "Name", "Source", "Destination", "Service", "Action", "Direction",
+                                      "Packet Type", "Applied-To", "ID (Section)"], tablefmt="psql")
 
 
 def dfw_section_read(client_session, dfw_section_id):
     """
-    This funtions retrieves details of a dfw section given its id
+    This function retrieves details of a dfw section given its id
     :param client_session: An instance of an NsxClient Session
     :param dfw_section_id: The ID of the dfw section to retrieve details from
     :return: returns
@@ -478,19 +557,18 @@ def dfw_section_read(client_session, dfw_section_id):
     """
     section_list = []
     dfw_section_id = str(dfw_section_id)
-    uri_parameters={'sectionId': dfw_section_id}
+    uri_parameters = {'sectionId': dfw_section_id}
 
     dfwL3_section_details = dict(client_session.read('dfwL3SectionId', uri_parameters))
-    #return dfwL3_section_details
-    #dfwL2_section_details = client_session.read('dfwL2SectionId', uri_parameters)
 
     section_name = dfwL3_section_details['body']['section']['@name']
-    section_id =  dfwL3_section_details['body']['section']['@id']
+    section_id = dfwL3_section_details['body']['section']['@id']
     section_type = dfwL3_section_details['body']['section']['@type']
-    section_etag =  dfwL3_section_details['Etag']
+    section_etag = dfwL3_section_details['Etag']
     section_list.append((section_name, section_id, section_type, section_etag))
 
     return section_list, dfwL3_section_details
+
 
 def _dfw_section_read_print(client_session, **kwargs):
     if not (kwargs['dfw_section_id']):
@@ -503,7 +581,6 @@ def _dfw_section_read_print(client_session, **kwargs):
         print dfwL3_section_details['body']
     else:
         print tabulate(section_list, headers=["Name", "ID", "Type", "Etag"], tablefmt="psql")
-
 
 
 def contruct_parser(subparsers):
@@ -520,6 +597,7 @@ def contruct_parser(subparsers):
     read_rule_id:    return the id of a rule given its name and the id of the section to which it belongs
     delete_section:  delete a section given its id
     delete_rule:     delete a rule given its id
+    delete_rule_source: delete one rule source given its id
     """)
 
     parser.add_argument("-sid",
@@ -534,10 +612,12 @@ def contruct_parser(subparsers):
     parser.add_argument("-rname",
                         "--dfw_rule_name",
                         help="dfw rule name")
-
-
+    parser.add_argument("-src",
+                        "--dfw_rule_source",
+                        help="dfw rule source")
 
     parser.set_defaults(func=_dfw_main)
+
 
 def _dfw_main(args):
     if args.debug:
@@ -561,14 +641,15 @@ def _dfw_main(args):
             'read_rule_id': _dfw_rule_id_read_print,
             'delete_section': _dfw_section_delete_print,
             'delete_rule': _dfw_rule_delete_print,
+            'delete_rule_source': _dfw_rule_source_delete_print,
             }
         command_selector[args.command](client_session, verbose=args.verbose, dfw_section_id=args.dfw_section_id,
                                        dfw_rule_id=args.dfw_rule_id, dfw_section_name=args.dfw_section_name,
-                                       dfw_rule_name=args.dfw_rule_name)
-
+                                       dfw_rule_name=args.dfw_rule_name, dfw_rule_source=args.dfw_rule_source)
 
     except KeyError:
         print('Unknown command')
+
 
 def main():
     main_parser = argparse.ArgumentParser()
