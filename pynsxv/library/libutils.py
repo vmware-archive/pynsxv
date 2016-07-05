@@ -170,7 +170,7 @@ def check_for_parameters(mandatory, args):
     param = None
     try:
         for param in mandatory:
-            if args[param]:
+            if not args[param]:
                 print 'You are missing the mandatory parameter: {}'.format(param)
                 return None
     except KeyError:
