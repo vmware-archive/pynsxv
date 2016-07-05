@@ -723,7 +723,7 @@ def contruct_parser(subparsers):
     del_dgw:          delete ESG default gateway ip address
     read_dgw:         show the configured default gateway
     add_route:        Add a static route to an ESG
-    del_route:        Delete a static route from an ESG
+    delete_route:     Delete a static route from an ESG
     list_routes:      List all configured static routes on an ESG
     cfg_interface:    Configure IP and other interface details
     clear_interface:  remove all configuration from an interface
@@ -844,7 +844,7 @@ def _esg_main(args):
             'list_interfaces': _esg_list_interfaces,
             'set_fw_status': _esg_fw_default_set,
             'add_route': _esg_route_add,
-            'del_route': _esg_route_del,
+            'delete_route': _esg_route_del,
             'list_routes': _esg_route_list
         }
         command_selector[args.command](client_session, vccontent=vccontent, esg_name=args.esg_name,

@@ -412,15 +412,15 @@ def contruct_parser(subparsers):
                                    help="Functions for distributed logical routers",
                                    formatter_class=RawTextHelpFormatter)
     parser.add_argument("command", help="""
-    create:         create a new dlr
-    read:           return the id of a dlr
-    delete:         delete a dlr
-    list:           return a list of all dlr
-    dgw_set:        set dlr default gateway ip address
-    dgw_del:        delete dlr default gateway ip address
-    add_interface:  add interface in dlr
-    del_interface:  delete interface of dlr
-    list_interfaces:list all interfaces of dlr
+    create:             create a new dlr
+    read:               return the id of a dlr
+    delete:             delete a dlr
+    list:               return a list of all dlr
+    set_dgw:            set dlr default gateway ip address
+    delete_dgw:         delete dlr default gateway ip address
+    add_interface:      add interface in dlr
+    delete_interface:   delete interface of dlr
+    list_interfaces:    list all interfaces of dlr
     """)
 
     parser.add_argument("-n",
@@ -485,10 +485,10 @@ def _dlr_main(args):
             'create': _dlr_create,
             'delete': _dlr_delete,
             'read': _dlr_read,
-            'dgw_set': _dlr_set_dgw,
-            'dgw_del': _dlr_del_dgw,
+            'set_dgw': _dlr_set_dgw,
+            'delete_dgw': _dlr_del_dgw,
             'add_interface': _dlr_add_interface,
-            'del_interface': _dlr_del_interface,
+            'delete_interface': _dlr_del_interface,
             'list_interfaces': _dlr_list_interfaces,
         }
         command_selector[args.command](client_session, vccontent=vccontent,
