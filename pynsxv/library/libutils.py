@@ -22,12 +22,11 @@
 # AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.”
 
-__author__ = 'yfauser'
-
 from pyVim.connect import SmartConnect
 from pyVmomi import vim
 import ssl
-import time
+
+__author__ = 'Dimitri Desmidt, Emanuele Mazza, Yves Fauser, Andreas La Quiante'
 
 
 VIM_TYPES = {'datacenter': [vim.Datacenter],
@@ -80,6 +79,7 @@ def get_mo_by_name(content, searchedname, vim_type):
             return obj
     return None
 
+
 def get_all_objs(content, vimtype):
     obj = {}
     container = content.viewManager.CreateContainerView(content.rootFolder, vimtype, True)
@@ -88,6 +88,7 @@ def get_all_objs(content, vimtype):
         obj.update({managed_object_ref: managed_object_ref.name})
     container.Destroy()
     return obj
+
 
 def connect_to_vc(vchost, user, pwd):
     # Disabling SSL certificate verification
@@ -109,6 +110,7 @@ def connect_to_vc(vchost, user, pwd):
         service_instance = SmartConnect(host=host, port=port, user=user, pwd=pwd)
 
     return service_instance.RetrieveContent()
+
 
 def get_edge(client_session, edge_name):
     """
@@ -163,10 +165,12 @@ def get_vm_by_name(content, vm_name):
     else:
         return None
 
+
 def check_for_parameters(mandatory, args):
+    param = None
     try:
         for param in mandatory:
-            if args[param] == None:
+            if args[param]:
                 print 'You are missing the mandatory parameter: {}'.format(param)
                 return None
     except KeyError:
@@ -181,15 +185,13 @@ def dfw_rule_list_helper(client_session, dfw_section, rule_list):
     destination_list = list()
     service_list = list()
     applyto_list = list()
-    # TODO: Emanuele, please remove the debug print statements below after you are done coding your module
-    #print ''
-    #print dfw_section
-    #print source_list
-    #print type(source_list)
-    #print ''
+
     for rptr in dfw_section:
         rule_id = rptr['@id']
-        rule_name = rptr['name']
+        if 'name' in rptr:
+            rule_name = rptr['name']
+        else:
+            rule_name = str('')
         rule_action = rptr['action']
         rule_direction = rptr['direction']
         rule_packetype = rptr['packetType']
@@ -248,15 +250,24 @@ def dfw_rule_list_helper(client_session, dfw_section, rule_list):
         #print ''
 
         if 'services' in rptr:
-            #print 'SERVICES ARE SPECIFIED'
             services = client_session.normalize_list_return(rptr['services']['service'])
-            #print ''
-            #print services
-            #print ''
             for srvcptr in services:
-                rule_services = srvcptr['name']
-                service_list.append(rule_services)
-            service_list = ' - '.join(service_list)
+                if 'name' in srvcptr:
+                    rule_services = srvcptr['name']
+                    service_list.append(rule_services)
+                if 'protocol' in srvcptr:
+                    if 'sourcePort' in srvcptr:
+                        source_port = str(srvcptr['sourcePort'])
+                    else:
+                        source_port = 'any'
+                    if 'destinationPort' in srvcptr:
+                        destination_port = str(srvcptr['destinationPort'])
+                    else:
+                        destination_port = 'any'
+                    protocol = srvcptr['protocolName']
+                    rule_services = protocol + ':' + source_port + ':' + destination_port
+                    service_list.append(rule_services)
+            service_list = ' | '.join(service_list)
         else:
             #print 'SERVICE IS ANY'
             service_list = 'any'
