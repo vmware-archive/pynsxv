@@ -567,7 +567,7 @@ def dfw_rule_destination_delete(client_session, rule_id, destination):
 
     if len(rule) == 0:
         # It means a rule with id = rule_id does not exist
-        result = [[rule_id, "---", destination, "---", "---", "---", "---", "---", "---", "---"]]
+        result = [[rule_id, "---", "---", destination, "---", "---", "---", "---", "---", "---"]]
         return result
 
     # Get the rule data structure that will be modified and then piped into the update function
@@ -646,8 +646,6 @@ def _dfw_rule_destination_delete_print(client_session, **kwargs):
                                       "Packet Type", "Applied-To", "ID (Section)"], tablefmt="psql")
 
 
-
-
 def dfw_rule_service_delete(client_session, rule_id, service):
     """
     This function delete one of the services of a dfw rule given the rule id and the service to be deleted.
@@ -674,7 +672,7 @@ def dfw_rule_service_delete(client_session, rule_id, service):
 
     if len(rule) == 0:
         # It means a rule with id = rule_id does not exist
-        result = [[rule_id, "---", destination, "---", "---", "---", "---", "---", "---", "---"]]
+        result = [[rule_id, "---", "---", "---", service, "---", "---", "---", "---", "---"]]
         return result
 
     # Get the rule data structure that will be modified and then piped into the update function
@@ -768,8 +766,103 @@ def _dfw_rule_service_delete_print(client_session, **kwargs):
                                       "Packet Type", "Applied-To", "ID (Section)"], tablefmt="psql")
 
 
+def dfw_rule_applyto_delete(client_session, rule_id, applyto):
+    """
+    This function delete one of the applyto clauses of a dfw rule given the rule id and the clause to be deleted.
+    If two or more clauses have the same name, the function will delete all of them
+    :param client_session: An instance of an NsxClient Session
+    :param rule_id: The ID of the dfw rule to retrieve
+    :param applyto: The name of the applyto clause of the dfw rule to be deleted. If it contains any space, then
+                    it must be enclosed in double quotes (like "VM Network").
+    :return: returns
+            - tabular view of the dfw rule after the deletion process has been performed
+            - ( verbose option ) a list containing a list with the following dfw rule information after the deletion
+              process has been performed: ID(Rule)- Name(Rule)- Source- Destination- Services- Action - Direction-
+              Pktytpe- AppliedTo- ID(section)
+    """
+
+    apply_to = str(applyto)
+    rule = dfw_rule_read(client_session, rule_id)
+
+    if len(rule) == 0:
+        # It means a rule with id = rule_id does not exist
+        result = [[rule_id, "---", "---", "---", "---", "---", "---", "---", apply_to, "---"]]
+        return result
+
+    # Get the rule data structure that will be modified and then piped into the update function
+    section_list = dfw_section_list(client_session)
+    sections = [section_list[0], section_list[1], section_list[2]]
+    section_id = rule[0][-1]
+
+    rule_type_selector = ''
+    for scan in sections:
+        for val in scan:
+            if val[1] == section_id:
+                rule_type_selector = val[2]
+
+    if rule_type_selector == '':
+        print 'ERROR: RULE TYPE SELECTOR CANNOT BE EMPTY - ABORT !'
+        return
+    if rule_type_selector == 'LAYER2':
+        rule_type = 'dfwL2Rule'
+    elif rule_type_selector == 'LAYER3':
+        rule_type = 'dfwL3Rule'
+    else:
+        rule_type = 'rule'
+
+    rule_schema = client_session.read(rule_type, uri_parameters={'ruleId': rule_id, 'sectionId': section_id})
+    rule_etag = rule_schema.items()[-1][1]
+
+    if type(rule_schema.items()[1][1]['rule']['appliedToList']['appliedTo']) == list:
+        # It means there are more than one applyto clauses, each one with his own dict
+        applyto_list = rule_schema.items()[1][1]['rule']['appliedToList']['appliedTo']
+        for i, val in enumerate(applyto_list):
+            if 'name' in val and val['name'] == apply_to:
+                del rule_schema.items()[1][1]['rule']['appliedToList']['appliedTo'][i]
+
+        # The order dict "rule_schema" must be parsed to find the dict that will be piped into the update function
+        rule = client_session.update(rule_type, uri_parameters={'ruleId': rule_id, 'sectionId': section_id},
+                                     request_body_dict=rule_schema.items()[1][1],
+                                     additional_headers={'If-match': rule_etag})
+        rule = dfw_rule_read(client_session, rule_id)
+        return rule
+
+    if type(rule_schema.items()[1][1]['rule']['appliedToList']['appliedTo']) == dict:
+        # It means there is just one explicit applyto clause with his dict
+        applyto_dict = rule_schema.items()[1][1]['rule']['appliedToList']['appliedTo']
+        val = applyto_dict
+
+        if 'name' in val and val['name'] == "DISTRIBUTED_FIREWALL":
+            # It means the only applyto clause is "DISTRIBUTED_FIREWALL" and it cannot be deleted short of deleting
+            # the whole rule
+            rule = dfw_rule_read(client_session, rule_id)
+            return rule
+
+        if 'name' in val and val['name'] == apply_to:
+            del rule_schema.items()[1][1]['rule']['appliedToList']
+            rule = client_session.update(rule_type, uri_parameters={'ruleId': rule_id, 'sectionId': section_id},
+                                         request_body_dict=rule_schema.items()[1][1],
+                                         additional_headers={'If-match': rule_etag})
+
+        rule = dfw_rule_read(client_session, rule_id)
+        return rule
 
 
+def _dfw_rule_applyto_delete_print(client_session, **kwargs):
+    if not (kwargs['dfw_rule_id']):
+        print ('Mandatory parameters missing: [-rid RULE ID]')
+        return None
+    if not (kwargs['dfw_rule_applyto']):
+        print ('Mandatory parameters missing: [-appto RULE APPLYTO]')
+        return None
+    rule_id = kwargs['dfw_rule_id']
+    applyto = kwargs['dfw_rule_applyto']
+    rule = dfw_rule_applyto_delete(client_session, rule_id, applyto)
+    if kwargs['verbose']:
+        print rule
+    else:
+        print tabulate(rule, headers=["ID", "Name", "Source", "Destination", "Service", "Action", "Direction",
+                                      "Packet Type", "Applied-To", "ID (Section)"], tablefmt="psql")
 
 
 def dfw_section_read(client_session, dfw_section_id):
@@ -826,6 +919,7 @@ def contruct_parser(subparsers):
     delete_rule_source: delete one rule's source given the rule id and the source identifier
     delete_rule_destination: delete one rule's destination given the rule id and the destination identifier
     delete_rule_service: delete one rule's service given the rule id and the service identifier
+    delete_rule_applyto: delete one rule's applyto clause given the rule id and the applyto clause identifier
     """)
 
     parser.add_argument("-sid",
@@ -849,6 +943,9 @@ def contruct_parser(subparsers):
     parser.add_argument("-srv",
                         "--dfw_rule_service",
                         help="dfw rule service")
+    parser.add_argument("-appto",
+                        "--dfw_rule_applyto",
+                        help="dfw rule applyto")
 
     parser.set_defaults(func=_dfw_main)
 
@@ -878,12 +975,13 @@ def _dfw_main(args):
             'delete_rule_source': _dfw_rule_source_delete_print,
             'delete_rule_destination': _dfw_rule_destination_delete_print,
             'delete_rule_service': _dfw_rule_service_delete_print,
+            'delete_rule_applyto': _dfw_rule_applyto_delete_print,
             }
         command_selector[args.command](client_session, verbose=args.verbose, dfw_section_id=args.dfw_section_id,
                                        dfw_rule_id=args.dfw_rule_id, dfw_section_name=args.dfw_section_name,
                                        dfw_rule_name=args.dfw_rule_name, dfw_rule_source=args.dfw_rule_source,
                                        dfw_rule_destination=args.dfw_rule_destination,
-                                       dfw_rule_service=args.dfw_rule_service)
+                                       dfw_rule_service=args.dfw_rule_service, dfw_rule_applyto=args.dfw_rule_applyto)
 
     except KeyError:
         print('Unknown command')
