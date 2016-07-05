@@ -89,9 +89,9 @@ def _esg_create(client_session, vccontent, **kwargs):
     if not check_for_parameters(needed_params, kwargs):
         return None
     datacentermoid = get_datacentermoid(vccontent, kwargs['datacenter_name'])
-    datastoremoid = get_datastoremoid(vccontent, kwargs['datacenter_name'], kwargs['edge_datastore'])
-    resourcepoolid = get_edgeresourcepoolmoid(vccontent, kwargs['datacenter_name'], kwargs['edge_cluster'])
-    portgroupmoid = get_vdsportgroupid(vccontent, kwargs['datacenter_name'], kwargs['portgroup'])
+    datastoremoid = get_datastoremoid(vccontent, kwargs['edge_datastore'])
+    resourcepoolid = get_edgeresourcepoolmoid(vccontent, kwargs['edge_cluster'])
+    portgroupmoid = get_vdsportgroupid(vccontent, kwargs['portgroup'])
 
     esg_id, esg_params = esg_create(client_session, kwargs['esg_name'], kwargs['esg_pwd'], kwargs['esg_size'],
                                     datacentermoid, datastoremoid, resourcepoolid, portgroupmoid,
@@ -261,7 +261,7 @@ def _esg_cfg_interface(client_session, vccontent, **kwargs):
         lsid, lsparams = get_logical_switch(client_session, kwargs['logical_switch'])
         portgroup = lsid
     elif kwargs['portgroup']:
-        pgid = get_vdsportgroupid(vccontent, kwargs['datacenter_name'], kwargs['portgroup'])
+        pgid = get_vdsportgroupid(vccontent, kwargs['portgroup'])
         portgroup = pgid
     else:
         portgroup = None
