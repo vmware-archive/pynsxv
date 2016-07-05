@@ -186,11 +186,7 @@ def dfw_rule_list_helper(client_session, dfw_section, rule_list):
     destination_list = list()
     service_list = list()
     applyto_list = list()
-    #print ''
-    #print dfw_section
-    #print source_list
-    #print type(source_list)
-    #print ''
+
     for rptr in dfw_section:
         rule_id = rptr['@id']
         if 'name' in rptr:
@@ -255,15 +251,24 @@ def dfw_rule_list_helper(client_session, dfw_section, rule_list):
         #print ''
 
         if 'services' in rptr:
-            #print 'SERVICES ARE SPECIFIED'
             services = client_session.normalize_list_return(rptr['services']['service'])
-            #print ''
-            #print services
-            #print ''
             for srvcptr in services:
-                rule_services = srvcptr['name']
-                service_list.append(rule_services)
-            service_list = ' - '.join(service_list)
+                if 'name' in srvcptr:
+                    rule_services = srvcptr['name']
+                    service_list.append(rule_services)
+                if 'protocol' in srvcptr:
+                    if 'sourcePort' in srvcptr:
+                        source_port = str(srvcptr['sourcePort'])
+                    else:
+                        source_port = 'any'
+                    if 'destinationPort' in srvcptr:
+                        destination_port = str(srvcptr['destinationPort'])
+                    else:
+                        destination_port = 'any'
+                    protocol = srvcptr['protocolName']
+                    rule_services = protocol + ':' + source_port + ':' + destination_port
+                    service_list.append(rule_services)
+            service_list = ' | '.join(service_list)
         else:
             #print 'SERVICE IS ANY'
             service_list = 'any'

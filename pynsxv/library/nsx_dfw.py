@@ -553,7 +553,7 @@ def dfw_rule_destination_delete(client_session, rule_id, destination):
     If two or more destinations have the same name, the function will delete all of them
     :param client_session: An instance of an NsxClient Session
     :param rule_id: The ID of the dfw rule to retrieve
-    :param destination: The destination of the dfw rule to be deleted. If the source name contains any space, then
+    :param destination: The destination of the dfw rule to be deleted. If the destination name contains any space, then
                         it must be enclosed in double quotes (like "VM Network")
     :return: returns
             - tabular view of the dfw rule after the deletion process has been performed
@@ -595,12 +595,12 @@ def dfw_rule_destination_delete(client_session, rule_id, destination):
     rule_etag = rule_schema.items()[-1][1]
 
     if 'destinations' not in rule_schema.items()[1][1]['rule']:
-        # It means the only source is "any" and it cannot be deleted short of deleting the whole rule
+        # It means the only destination is "any" and it cannot be deleted short of deleting the whole rule
         rule = dfw_rule_read(client_session, rule_id)
         return rule
 
     if type(rule_schema.items()[1][1]['rule']['destinations']['destination']) == list:
-        # It means there are more than one sources, each one with his own dict
+        # It means there are more than one destinations, each one with his own dict
         destination_list = rule_schema.items()[1][1]['rule']['destinations']['destination']
         for i, val in enumerate(destination_list):
             if val['type'] == 'Ipv4Address' and val['value'] == destination or \
@@ -644,6 +644,132 @@ def _dfw_rule_destination_delete_print(client_session, **kwargs):
     else:
         print tabulate(rule, headers=["ID", "Name", "Source", "Destination", "Service", "Action", "Direction",
                                       "Packet Type", "Applied-To", "ID (Section)"], tablefmt="psql")
+
+
+
+
+def dfw_rule_service_delete(client_session, rule_id, service):
+    """
+    This function delete one of the services of a dfw rule given the rule id and the service to be deleted.
+    If two or more services have the same name, the function will delete all of them
+    :param client_session: An instance of an NsxClient Session
+    :param rule_id: The ID of the dfw rule to retrieve
+    :param service: The service of the dfw rule to be deleted. If the service name contains any space, then
+                    it must be enclosed in double quotes (like "VM Network"). For TCP/UDP services the syntax is as
+                    follows: Proto:SourcePort:DestinationPort ( example TCP:9090:any )
+    :return: returns
+            - tabular view of the dfw rule after the deletion process has been performed
+            - ( verbose option ) a list containing a list with the following dfw rule informations after the deletion
+              process has been performed: ID(Rule)- Name(Rule)- Source- Destination- Services- Action - Direction-
+              Pktytpe- AppliedTo- ID(section)
+    """
+
+    service = str(service).split(':', 3)
+    if len(service) == 1:
+        service.append('')
+    if len(service) == 2:
+        service.append('')
+
+    rule = dfw_rule_read(client_session, rule_id)
+
+    if len(rule) == 0:
+        # It means a rule with id = rule_id does not exist
+        result = [[rule_id, "---", destination, "---", "---", "---", "---", "---", "---", "---"]]
+        return result
+
+    # Get the rule data structure that will be modified and then piped into the update function
+    section_list = dfw_section_list(client_session)
+    sections = [section_list[0], section_list[1], section_list[2]]
+    section_id = rule[0][-1]
+
+    rule_type_selector = ''
+    for scan in sections:
+        for val in scan:
+            if val[1] == section_id:
+                rule_type_selector = val[2]
+
+    if rule_type_selector == '':
+        print 'ERROR: RULE TYPE SELECTOR CANNOT BE EMPTY - ABORT !'
+        return
+    if rule_type_selector == 'LAYER2':
+        rule_type = 'dfwL2Rule'
+    elif rule_type_selector == 'LAYER3':
+        rule_type = 'dfwL3Rule'
+    else:
+        rule_type = 'rule'
+
+    rule_schema = client_session.read(rule_type, uri_parameters={'ruleId': rule_id, 'sectionId': section_id})
+    rule_etag = rule_schema.items()[-1][1]
+
+    if 'services' not in rule_schema.items()[1][1]['rule']:
+        # It means the only service is "any" and it cannot be deleted short of deleting the whole rule
+        rule = dfw_rule_read(client_session, rule_id)
+        return rule
+
+    if type(rule_schema.items()[1][1]['rule']['services']['service']) == list:
+        # It means there are more than one services, each one with his own dict
+        service_list = rule_schema.items()[1][1]['rule']['services']['service']
+        for i, val in enumerate(service_list):
+            if ('name' in val and val['name'] == service[0]) or ('sourcePort' not in val and service[1] == 'any'
+            and 'destinationPort' not in val and service[2] == 'any' and 'protocolName' in val and
+            val['protocolName'] == service[0]) or ('sourcePort' in val and val['sourcePort'] == service[1]
+            and 'destinationPort' not in val and service[2] == 'any' and 'protocolName' in val
+            and val['protocolName'] == service[0]) or ('sourcePort' in val and val['sourcePort'] == service[1]
+            and 'destinationPort' in val and val['destinationPort'] == service[2] and 'protocolName' in val
+            and val['protocolName'] == service[0]) or ('sourcePort' not in val and service[1] == 'any'
+            and 'destinationPort' in val and val['destinationPort'] == service[2] and 'protocolName' in val and
+            val['protocolName'] == service[0]):
+                del rule_schema.items()[1][1]['rule']['services']['service'][i]
+
+        # The order dict "rule_schema" must be parsed to find the dict that will be piped into the update function
+        rule = client_session.update(rule_type, uri_parameters={'ruleId': rule_id, 'sectionId': section_id},
+                                     request_body_dict=rule_schema.items()[1][1],
+                                     additional_headers={'If-match': rule_etag})
+        rule = dfw_rule_read(client_session, rule_id)
+        return rule
+
+    if type(rule_schema.items()[1][1]['rule']['services']['service']) == dict:
+        # It means there is just one explicit service with his dict
+        service_dict = rule_schema.items()[1][1]['rule']['services']['service']
+        val = service_dict
+
+        if ('name' in val and val['name'] == service[0]) or ('sourcePort' not in val and service[1] == 'any'
+        and 'destinationPort' not in val and service[2] == 'any' and 'protocolName' in val and
+        val['protocolName'] == service[0]) or ('sourcePort' in val and val['sourcePort'] == service[1]
+        and 'destinationPort' not in val and service[2] == 'any' and 'protocolName' in val
+        and val['protocolName'] == service[0]) or ('sourcePort' in val and val['sourcePort'] == service[1]
+        and 'destinationPort' in val and val['destinationPort'] == service[2] and 'protocolName' in val
+        and val['protocolName'] == service[0]) or ('sourcePort' not in val and service[1] == 'any'
+        and 'destinationPort' in val and val['destinationPort'] == service[2] and 'protocolName' in val and
+        val['protocolName'] == service[0]):
+            del rule_schema.items()[1][1]['rule']['services']
+            rule = client_session.update(rule_type, uri_parameters={'ruleId': rule_id, 'sectionId': section_id},
+                                         request_body_dict=rule_schema.items()[1][1],
+                                         additional_headers={'If-match': rule_etag})
+
+        rule = dfw_rule_read(client_session, rule_id)
+        return rule
+
+
+def _dfw_rule_service_delete_print(client_session, **kwargs):
+    if not (kwargs['dfw_rule_id']):
+        print ('Mandatory parameters missing: [-rid RULE ID]')
+        return None
+    if not (kwargs['dfw_rule_service']):
+        print ('Mandatory parameters missing: [-srv RULE SERVICE]')
+        return None
+    rule_id = kwargs['dfw_rule_id']
+    service = kwargs['dfw_rule_service']
+    rule = dfw_rule_service_delete(client_session, rule_id, service)
+    if kwargs['verbose']:
+        print rule
+    else:
+        print tabulate(rule, headers=["ID", "Name", "Source", "Destination", "Service", "Action", "Direction",
+                                      "Packet Type", "Applied-To", "ID (Section)"], tablefmt="psql")
+
+
+
+
 
 
 def dfw_section_read(client_session, dfw_section_id):
@@ -697,8 +823,9 @@ def contruct_parser(subparsers):
     read_rule_id:    return the id of a rule given its name and the id of the section to which it belongs
     delete_section:  delete a section given its id
     delete_rule:     delete a rule given its id
-    delete_rule_source: delete one rule's source given its id and the source identifier
-    delete_rule_destination: delete one rule's destination given its id and the destination identifier
+    delete_rule_source: delete one rule's source given the rule id and the source identifier
+    delete_rule_destination: delete one rule's destination given the rule id and the destination identifier
+    delete_rule_service: delete one rule's service given the rule id and the service identifier
     """)
 
     parser.add_argument("-sid",
@@ -719,6 +846,9 @@ def contruct_parser(subparsers):
     parser.add_argument("-dst",
                         "--dfw_rule_destination",
                         help="dfw rule destination")
+    parser.add_argument("-srv",
+                        "--dfw_rule_service",
+                        help="dfw rule service")
 
     parser.set_defaults(func=_dfw_main)
 
@@ -747,11 +877,13 @@ def _dfw_main(args):
             'delete_rule': _dfw_rule_delete_print,
             'delete_rule_source': _dfw_rule_source_delete_print,
             'delete_rule_destination': _dfw_rule_destination_delete_print,
+            'delete_rule_service': _dfw_rule_service_delete_print,
             }
         command_selector[args.command](client_session, verbose=args.verbose, dfw_section_id=args.dfw_section_id,
                                        dfw_rule_id=args.dfw_rule_id, dfw_section_name=args.dfw_section_name,
                                        dfw_rule_name=args.dfw_rule_name, dfw_rule_source=args.dfw_rule_source,
-                                       dfw_rule_destination=args.dfw_rule_destination)
+                                       dfw_rule_destination=args.dfw_rule_destination,
+                                       dfw_rule_service=args.dfw_rule_service)
 
     except KeyError:
         print('Unknown command')
