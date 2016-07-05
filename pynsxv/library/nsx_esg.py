@@ -340,7 +340,7 @@ def esg_list_interfaces(client_session, esg_name):
     """
     :param client_session: An instance of an NsxClient Session
     :param esg_name: The name of the ESG to list interfaces of
-    :return: returns a list of tuples with
+    :return: returns two tuples, the first is a list of tuples with
              item 0 containing the vnic Name as string,
              item 1 containing the vnic index as string,
              item 2 containing the ip as string,
