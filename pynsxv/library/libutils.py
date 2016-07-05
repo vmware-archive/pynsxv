@@ -27,6 +27,7 @@ __author__ = 'yfauser'
 from pyVim.connect import SmartConnect
 from pyVmomi import vim
 import ssl
+import time
 
 
 VIM_TYPES = {'datacenter': [vim.Datacenter],
@@ -35,7 +36,8 @@ VIM_TYPES = {'datacenter': [vim.Datacenter],
              'resourcepool_name': [vim.ResourcePool],
              'cluster': [vim.ClusterComputeResource],
              'dvs_portgroup': [vim.DistributedVirtualPortgroup],
-             'host': [vim.HostSystem]}
+             'host': [vim.HostSystem],
+             'vm': [vim.VirtualMachine]}
 
 
 def get_scope(client_session, transport_zone_name):
@@ -55,7 +57,6 @@ def get_scope(client_session, transport_zone_name):
 
     return vdn_scope['objectId'], vdn_scope
 
-
 def get_logical_switch(client_session, logical_switch_name):
     """
     :param client_session: An instance of an NsxClient Session
@@ -72,14 +73,12 @@ def get_logical_switch(client_session, logical_switch_name):
 
     return logical_switch_id, logical_switch_params
 
-
 def get_mo_by_name(content, searchedname, vim_type):
     mo_dict = get_all_objs(content, vim_type)
     for obj in mo_dict:
         if obj.name == searchedname:
             return obj
     return None
-
 
 def get_all_objs(content, vimtype):
     obj = {}
@@ -89,7 +88,6 @@ def get_all_objs(content, vimtype):
         obj.update({managed_object_ref: managed_object_ref.name})
     container.Destroy()
     return obj
-
 
 def connect_to_vc(vchost, user, pwd):
     # Disabling SSL certificate verification
@@ -112,7 +110,6 @@ def connect_to_vc(vchost, user, pwd):
 
     return service_instance.RetrieveContent()
 
-
 def get_edge(client_session, edge_name):
     """
     :param client_session: An instance of an NsxClient Session
@@ -120,8 +117,6 @@ def get_edge(client_session, edge_name):
     :return: A tuple, with the first item being the edge or dlr id as string of the first Scope found with the
              right name and the second item being a dictionary of the logical parameters as return by the NSX API
     """
-
-
     all_edge = client_session.read_all_pages('nsxEdges', 'read')
 
     try:
@@ -133,7 +128,6 @@ def get_edge(client_session, edge_name):
 
     return edge_id, edge_params
 
-
 def get_datacentermoid(content, datacenter_name):
     datacenter_mo = get_mo_by_name(content, datacenter_name, VIM_TYPES['datacenter'])
     if datacenter_mo:
@@ -141,24 +135,31 @@ def get_datacentermoid(content, datacenter_name):
     else:
         return None
 
-def get_datastoremoid(content, datacenter_name, edge_datastore):
+def get_datastoremoid(content, edge_datastore):
     datastore_mo = get_mo_by_name(content, edge_datastore, VIM_TYPES['datastore_name'])
     if datastore_mo:
         return str(datastore_mo._moId)
     else:
         return None
 
-def get_edgeresourcepoolmoid(content, datacenter_name, edge_cluster):
+def get_edgeresourcepoolmoid(content, edge_cluster):
     cluser_mo = get_mo_by_name(content, edge_cluster, VIM_TYPES['cluster'])
     if cluser_mo:
         return str(cluser_mo._moId)
     else:
         return None
 
-def get_vdsportgroupid(content, datacenter_name, switch_name):
+def get_vdsportgroupid(content, switch_name):
     portgroup_mo = get_mo_by_name(content, switch_name, VIM_TYPES['dvs_portgroup'])
     if portgroup_mo:
         return str(portgroup_mo._moId)
+    else:
+        return None
+
+def get_vm_by_name(content, vm_name):
+    vm_mo = get_mo_by_name(content, vm_name, VIM_TYPES['vm'])
+    if vm_mo:
+        return str(vm_mo._moId)
     else:
         return None
 
