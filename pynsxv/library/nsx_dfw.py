@@ -28,8 +28,9 @@ from tabulate import tabulate
 from nsxramlclient.client import NsxClient
 from argparse import RawTextHelpFormatter
 from libutils import dfw_rule_list_helper
+from pkg_resources import resource_filename
 
-__author__ = 'Dimitri Desmidt, Emanuele Mazza, Yves Fauser'
+__author__ = 'Emanuele Mazza'
 
 
 def dfw_section_list(client_session):
@@ -259,7 +260,14 @@ def _dfw_section_id_read_print(client_session, **kwargs):
         return None
     dfw_section_name = str(kwargs['dfw_section_name'])
     dfw_section_id = dfw_section_id_read(client_session, dfw_section_name)
-    print dfw_section_id
+
+    # TODO: Emanuele, please check if you are fine with my additions bellow. I'm output'ing a csv list when used with -v
+
+    if kwargs['verbose']:
+        print dfw_section_id
+    else:
+        dfw_section_id_csv = ",".join([str(section['Id']) for section in dfw_section_id])
+        print dfw_section_id_csv
 
 
 def dfw_rule_id_read(client_session, dfw_section_id, dfw_rule_name):
@@ -313,7 +321,15 @@ def _dfw_rule_id_read_print(client_session, **kwargs):
     dfw_rule_name = str(kwargs['dfw_rule_name'])
 
     dfw_rule_id = dfw_rule_id_read(client_session, dfw_section_id, dfw_rule_name)
-    print dfw_rule_id
+
+    # TODO: Emanuele, please check if you are fine with my additions bellow. I'm output'ing a table with the IDs in a csv format in the non -v case
+
+    if kwargs['verbose']:
+        print dfw_rule_id
+    else:
+        dfw_rule_ids_str = [str(ruleid) for ruleid in dfw_rule_id[dfw_rule_name]]
+        dfw_rule_id_csv = ",".join(dfw_rule_ids_str)
+        print tabulate([(dfw_rule_name, dfw_rule_id_csv)], headers=["Rule Name", "Rule IDs"], tablefmt="psql")
 
 
 def dfw_rule_list(client_session):
@@ -959,7 +975,13 @@ def _dfw_main(args):
     config = ConfigParser.ConfigParser()
     assert config.read(args.ini), 'could not read config file {}'.format(args.ini)
 
-    client_session = NsxClient(config.get('nsxraml', 'nsxraml_file'), config.get('nsxv', 'nsx_manager'),
+    try:
+        nsxramlfile = config.get('nsxraml', 'nsxraml_file')
+    except (ConfigParser.NoSectionError):
+        nsxramlfile_dir = resource_filename(__name__, 'api_spec')
+        nsxramlfile = '{}/nsxvapi.raml'.format(nsxramlfile_dir)
+
+    client_session = NsxClient(nsxramlfile, config.get('nsxv', 'nsx_manager'),
                                config.get('nsxv', 'nsx_username'), config.get('nsxv', 'nsx_password'), debug=debug)
 
     try:
