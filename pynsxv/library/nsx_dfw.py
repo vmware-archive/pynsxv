@@ -902,6 +902,95 @@ def _dfw_section_read_print(client_session, **kwargs):
         print tabulate(section_list, headers=["Name", "ID", "Type", "Etag"], tablefmt="psql")
 
 
+def dfw_section_create(client_session, dfw_section_name, dfw_section_type):
+    """
+    This function creates a new dfw section given its name and its type
+    The new section is created on top of all other existing sections and with no rules
+    If a section of the same time and with the same name already exist, nothing is done
+    :param client_session: An instance of an NsxClient Session
+    :param dfw_section_name: The name of the dfw section to be created
+    :param dfw_section_type: The type of the section. Allowed values are L2/L3/L3R
+    :return: returns
+            - a tabular view of all the sections of the same type of the one just created. The table contains the
+              following information: Name, Section id, Section type
+            - ( verbose option ) a dictionary containing for each possible type all sections' details, including
+              dfw rules
+    """
+
+    dfw_section_name = str(dfw_section_name)
+    dfw_section_selector = str(dfw_section_type)
+
+    if dfw_section_selector != 'L2' and dfw_section_selector != 'L3' and dfw_section_selector != 'L3R':
+        print ('Section Type Unknown - Allowed values are L2/L3/L3R -- Aborting')
+        return
+
+    if dfw_section_selector == 'L2':
+        dfw_section_type = 'dfwL2Section'
+
+    elif dfw_section_selector == 'L3':
+        dfw_section_type = 'dfwL3Section'
+
+    else:
+        dfw_section_type = 'layer3RedirectSections'
+
+    # Regardless of the final rule type this line below is the correct way to get the empty schema
+    section_schema = client_session.extract_resource_body_example('dfwL3Section', 'create')
+    section_schema['section']['@name'] = dfw_section_name
+
+    # Delete the rule section to create an empty section
+    del section_schema['section']['rule']
+
+    # Check for duplicate sections of the same type as the one that will be created, create and return
+    l2_section_list, l3r_section_list, l3_section_list, detailed_dfw_sections = dfw_section_list(client_session)
+
+    if dfw_section_type == 'dfwL2Section':
+        for val in l2_section_list:
+            if dfw_section_name in val:
+                # Section with the same name already exist
+                return l2_section_list, detailed_dfw_sections
+        section = client_session.create(dfw_section_type, request_body_dict=section_schema)
+        l2_section_list, l3r_section_list, l3_section_list, detailed_dfw_sections = dfw_section_list(client_session)
+        return l2_section_list, detailed_dfw_sections
+
+    if dfw_section_type == 'dfwL3Section':
+        for val in l3_section_list:
+            if dfw_section_name in val:
+                # Section with the same name already exist
+                return l3_section_list, detailed_dfw_sections
+        section = client_session.create(dfw_section_type, request_body_dict=section_schema)
+        l2_section_list, l3r_section_list, l3_section_list, detailed_dfw_sections = dfw_section_list(client_session)
+        return l3_section_list, detailed_dfw_sections
+
+    if dfw_section_type == 'layer3RedirectSections':
+        for val in l3r_section_list:
+            if dfw_section_name in val:
+                # Section with the same name already exist
+                return l3r_section_list, detailed_dfw_sections
+        section = client_session.create(dfw_section_type, request_body_dict=section_schema)
+        l2_section_list, l3r_section_list, l3_section_list, detailed_dfw_sections = dfw_section_list(client_session)
+        return l3r_section_list, detailed_dfw_sections
+
+
+def _dfw_section_create_print(client_session, **kwargs):
+    if not (kwargs['dfw_section_name']):
+        print ('Mandatory parameters missing: [-sname SECTION NAME]')
+        return None
+
+    if not (kwargs['dfw_section_type']):
+        print ('Mandatory parameters missing: [-stype SECTION TYPE]')
+        return None
+
+    dfw_section_name = kwargs['dfw_section_name']
+    dfw_section_type = kwargs['dfw_section_type']
+
+    section_list, detailed_dfw_sections = dfw_section_create(client_session, dfw_section_name, dfw_section_type)
+
+    if kwargs['verbose']:
+        print detailed_dfw_sections
+    else:
+        print tabulate(section_list, headers=["Name", "ID", "Type"], tablefmt="psql")
+
+
 def contruct_parser(subparsers):
     parser = subparsers.add_parser('dfw', description="Functions for distributed firewall",
                                    help="Functions for distributed firewall",
@@ -911,6 +1000,7 @@ def contruct_parser(subparsers):
     list_sections:   return a list of all distributed firewall's sections
     read_section:    return the details of a dfw section given its id
     read_section_id: return the id of a section given its name (case sensitive)
+    create_section:  create a new section given its name and its type (L2,L3,L3R)
     list_rules:      return a list of all distributed firewall's rules
     read_rule:       return the details of a dfw rule given its id
     read_rule_id:    return the id of a rule given its name and the id of the section to which it belongs
@@ -920,6 +1010,7 @@ def contruct_parser(subparsers):
     delete_rule_destination: delete one rule's destination given the rule id and the destination identifier
     delete_rule_service: delete one rule's service given the rule id and the service identifier
     delete_rule_applyto: delete one rule's applyto clause given the rule id and the applyto clause identifier
+    move_rule_above:   move one rule above another rule given the id of the rule to be moved and the id of the base rule
     """)
 
     parser.add_argument("-sid",
@@ -946,6 +1037,12 @@ def contruct_parser(subparsers):
     parser.add_argument("-appto",
                         "--dfw_rule_applyto",
                         help="dfw rule applyto")
+    parser.add_argument("-brid",
+                        "--dfw_rule_base_id",
+                        help="dfw rule base id")
+    parser.add_argument("-stype",
+                        "--dfw_section_type",
+                        help="dfw section type")
 
     parser.set_defaults(func=_dfw_main)
 
@@ -976,12 +1073,15 @@ def _dfw_main(args):
             'delete_rule_destination': _dfw_rule_destination_delete_print,
             'delete_rule_service': _dfw_rule_service_delete_print,
             'delete_rule_applyto': _dfw_rule_applyto_delete_print,
+            'move_rule_above': _dfw_rule_move_above_print,
+            'create_section': _dfw_section_create_print,
             }
         command_selector[args.command](client_session, verbose=args.verbose, dfw_section_id=args.dfw_section_id,
                                        dfw_rule_id=args.dfw_rule_id, dfw_section_name=args.dfw_section_name,
                                        dfw_rule_name=args.dfw_rule_name, dfw_rule_source=args.dfw_rule_source,
                                        dfw_rule_destination=args.dfw_rule_destination,
-                                       dfw_rule_service=args.dfw_rule_service, dfw_rule_applyto=args.dfw_rule_applyto)
+                                       dfw_rule_service=args.dfw_rule_service, dfw_rule_applyto=args.dfw_rule_applyto,
+                                       dfw_rule_base_id=args.dfw_rule_base_id, dfw_section_type=args.dfw_section_type)
 
     except KeyError:
         print('Unknown command')
