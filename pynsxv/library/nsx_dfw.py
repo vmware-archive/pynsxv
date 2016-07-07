@@ -1073,7 +1073,6 @@ def _dfw_main(args):
             'delete_rule_destination': _dfw_rule_destination_delete_print,
             'delete_rule_service': _dfw_rule_service_delete_print,
             'delete_rule_applyto': _dfw_rule_applyto_delete_print,
-            'move_rule_above': _dfw_rule_move_above_print,
             'create_section': _dfw_section_create_print,
             }
         command_selector[args.command](client_session, verbose=args.verbose, dfw_section_id=args.dfw_section_id,
@@ -1084,7 +1083,7 @@ def _dfw_main(args):
                                        dfw_rule_base_id=args.dfw_rule_base_id, dfw_section_type=args.dfw_section_type)
 
     except KeyError:
-        print('Unknown command')
+        print('Unknown command ')
 
 
 def main():
