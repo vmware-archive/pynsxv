@@ -139,21 +139,30 @@ def dfw_section_delete(client_session, section_id):
     dfw_section_id = str(section_id)
 
     for i, val in enumerate(l3_section_list):
-        if dfw_section_id == str(val[1]):
+        if dfw_section_id == str(val[1]) and str(val[0]) != 'Default Section Layer3':
             client_session.delete('dfwL3SectionId', uri_parameters={'sectionId': dfw_section_id})
             result = [["True", dfw_section_id, str(val[0]), str(val[-1])]]
             return result
+        if dfw_section_id == str(val[1]) and str(val[0]) == 'Default Section Layer3':
+            result = [["False-Delete Default Section is not allowed", dfw_section_id, "---", "---"]]
+            return result
 
     for i, val in enumerate(l2_section_list):
-        if dfw_section_id == str(val[1]):
+        if dfw_section_id == str(val[1]) and str(val[0]) != 'Default Section Layer2':
             client_session.delete('dfwL2SectionId', uri_parameters={'sectionId': dfw_section_id})
             result = [["True", dfw_section_id, str(val[0]), str(val[-1])]]
             return result
+        if dfw_section_id == str(val[1]) and str(val[0]) == 'Default Section Layer2':
+            result = [["False-Delete Default Section is not allowed", dfw_section_id, "---", "---"]]
+            return result
 
     for i, val in enumerate(l3r_section_list):
-        if dfw_section_id == str(val[1]):
+        if dfw_section_id == str(val[1]) and str(val[0]) != 'Default Section':
             client_session.delete('section', uri_parameters={'section': dfw_section_id})
             result = [["True", dfw_section_id, str(val[0]), str(val[-1])]]
+            return result
+        if dfw_section_id == str(val[1]) and str(val[0]) == 'Default Section':
+            result = [["False-Delete Default Section is not allowed", dfw_section_id, "---", "---"]]
             return result
 
     result = [["False", dfw_section_id, "---", "---"]]
