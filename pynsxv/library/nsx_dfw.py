@@ -43,13 +43,25 @@ def dfw_section_list(client_session):
             - a dictionary containing all sections' details, including dfw rules
     """
     all_dfw_sections = client_session.read('dfwConfig')['body']['firewallConfiguration']
-    l2_dfw_sections = all_dfw_sections['layer2Sections']['section']
-    l3r_dfw_sections = all_dfw_sections['layer3RedirectSections']['section']
-    l3_dfw_sections = all_dfw_sections['layer3Sections']['section']
 
-    l2_section_list = []
-    l3r_section_list = []
-    l3_section_list = []
+    if str(all_dfw_sections['layer2Sections']) != 'None':
+        l2_dfw_sections = all_dfw_sections['layer2Sections']['section']
+    else:
+        l2_dfw_sections = list()
+
+    if str(all_dfw_sections['layer2Sections']) != 'None':
+        l3r_dfw_sections = all_dfw_sections['layer3RedirectSections']['section']
+    else:
+        l3r_dfw_sections = list()
+
+    if str(all_dfw_sections['layer3Sections']) != 'None':
+        l3_dfw_sections = all_dfw_sections['layer3Sections']['section']
+    else:
+        l3_dfw_sections = list()
+
+    l2_section_list = [['---', '---', '---']]
+    l3r_section_list = [['---', '---', '---']]
+    l3_section_list = [['---', '---', '---']]
 
     if type(l2_dfw_sections) is not list:
         keys_and_values = zip(dict.keys(l2_dfw_sections), dict.values(l2_dfw_sections))
@@ -66,26 +78,32 @@ def dfw_section_list(client_session):
         l3r_dfw_sections = list()
         l3r_dfw_sections.append(dict(keys_and_values))
 
-    for sl in l2_dfw_sections:
-        try:
-            section_name = sl['@name']
-        except KeyError:
-            section_name = '<empty name>'
-        l2_section_list.append((section_name, sl['@id'], sl['@type']))
+    if len(l2_dfw_sections) != 0:
+        l2_section_list = list()
+        for sl in l2_dfw_sections:
+            try:
+                section_name = sl['@name']
+            except KeyError:
+                section_name = '<empty name>'
+            l2_section_list.append((section_name, sl['@id'], sl['@type']))
 
-    for sl in l3r_dfw_sections:
-        try:
-            section_name = sl['@name']
-        except KeyError:
-            section_name = '<empty name>'
-        l3r_section_list.append((section_name, sl['@id'], sl['@type']))
+    if len(l3r_dfw_sections) != 0:
+        l3r_section_list = list()
+        for sl in l3r_dfw_sections:
+            try:
+                section_name = sl['@name']
+            except KeyError:
+                section_name = '<empty name>'
+            l3r_section_list.append((section_name, sl['@id'], sl['@type']))
 
-    for sl in l3_dfw_sections:
-        try:
-            section_name = sl['@name']
-        except KeyError:
-            section_name = '<empty name>'
-        l3_section_list.append((section_name, sl['@id'], sl['@type']))
+    if len(l3_dfw_sections) != 0:
+        l3_section_list = list()
+        for sl in l3_dfw_sections:
+            try:
+                section_name = sl['@name']
+            except KeyError:
+                section_name = '<empty name>'
+            l3_section_list.append((section_name, sl['@id'], sl['@type']))
 
     return l2_section_list, l3r_section_list, l3_section_list, all_dfw_sections
 
