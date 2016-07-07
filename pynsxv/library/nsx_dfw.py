@@ -357,9 +357,20 @@ def dfw_rule_list(client_session):
     all_dfw_sections_response = client_session.read('dfwConfig')
     all_dfw_sections = client_session.normalize_list_return(all_dfw_sections_response['body']['firewallConfiguration'])
 
-    l2_dfw_sections = all_dfw_sections[0]['layer2Sections']['section']
-    l3r_dfw_sections = all_dfw_sections[0]['layer3RedirectSections']['section']
-    l3_dfw_sections = all_dfw_sections[0]['layer3Sections']['section']
+    if str(all_dfw_sections[0]['layer3Sections']) != 'None':
+        l3_dfw_sections = all_dfw_sections[0]['layer3Sections']['section']
+    else:
+        l3_dfw_sections = list()
+
+    if str(all_dfw_sections[0]['layer2Sections']) != 'None':
+        l2_dfw_sections = all_dfw_sections[0]['layer2Sections']['section']
+    else:
+        l2_dfw_sections = list()
+
+    if str(all_dfw_sections[0]['layer3RedirectSections']) != 'None':
+        l3r_dfw_sections = all_dfw_sections[0]['layer3RedirectSections']['section']
+    else:
+        l3r_dfw_sections = list()
 
     if type(l2_dfw_sections) is not list:
         keys_and_values = zip(dict.keys(l2_dfw_sections), dict.values(l2_dfw_sections))
@@ -378,48 +389,51 @@ def dfw_rule_list(client_session):
 
     l2_temp = list()
     l2_rule_list = list()
-    for i, val in enumerate(l2_dfw_sections):
-        if 'rule' in val:
-            l2_temp.append(l2_dfw_sections[i])
-    l2_dfw_sections = l2_temp
-    if len(l2_dfw_sections) > 0:
-        if 'rule' in l2_dfw_sections[0]:
-            rule_list = list()
-            for sptr in l2_dfw_sections:
-                section_rules = client_session.normalize_list_return(sptr['rule'])
-                l2_rule_list = dfw_rule_list_helper(client_session, section_rules, rule_list)
-    else:
-        l2_rule_list = []
+    if len(l2_dfw_sections) != 0:
+        for i, val in enumerate(l2_dfw_sections):
+            if 'rule' in val:
+                l2_temp.append(l2_dfw_sections[i])
+        l2_dfw_sections = l2_temp
+        if len(l2_dfw_sections) > 0:
+            if 'rule' in l2_dfw_sections[0]:
+                rule_list = list()
+                for sptr in l2_dfw_sections:
+                    section_rules = client_session.normalize_list_return(sptr['rule'])
+                    l2_rule_list = dfw_rule_list_helper(client_session, section_rules, rule_list)
+        else:
+            l2_rule_list = []
 
     l3_temp = list()
     l3_rule_list = list()
-    for i, val in enumerate(l3_dfw_sections):
-        if 'rule' in val:
-            l3_temp.append(l3_dfw_sections[i])
-    l3_dfw_sections = l3_temp
-    if len(l3_dfw_sections) > 0:
-        if 'rule' in l3_dfw_sections[0]:
-            rule_list = list()
-            for sptr in l3_dfw_sections:
-                section_rules = client_session.normalize_list_return(sptr['rule'])
-                l3_rule_list = dfw_rule_list_helper(client_session, section_rules, rule_list)
-    else:
-        l3_rule_list = []
+    if len(l3_dfw_sections) != 0:
+        for i, val in enumerate(l3_dfw_sections):
+            if 'rule' in val:
+                l3_temp.append(l3_dfw_sections[i])
+        l3_dfw_sections = l3_temp
+        if len(l3_dfw_sections) > 0:
+            if 'rule' in l3_dfw_sections[0]:
+                rule_list = list()
+                for sptr in l3_dfw_sections:
+                    section_rules = client_session.normalize_list_return(sptr['rule'])
+                    l3_rule_list = dfw_rule_list_helper(client_session, section_rules, rule_list)
+        else:
+            l3_rule_list = []
 
     l3r_temp = list()
     l3r_rule_list = list()
-    for i, val in enumerate(l3r_dfw_sections):
-        if 'rule' in val:
-            l3r_temp.append(l3r_dfw_sections[i])
-    l3r_dfw_sections = l3r_temp
-    if len(l3r_dfw_sections) > 0:
-        if 'rule' in l3r_dfw_sections[0]:
-            rule_list = list()
-            for sptr in l3r_dfw_sections:
-                section_rules = client_session.normalize_list_return(sptr['rule'])
-                l3r_rule_list = dfw_rule_list_helper(client_session, section_rules, rule_list)
-    else:
-        l3r_rule_list = []
+    if len(l3r_dfw_sections) != 0:
+        for i, val in enumerate(l3r_dfw_sections):
+            if 'rule' in val:
+                l3r_temp.append(l3r_dfw_sections[i])
+        l3r_dfw_sections = l3r_temp
+        if len(l3r_dfw_sections) > 0:
+            if 'rule' in l3r_dfw_sections[0]:
+                rule_list = list()
+                for sptr in l3r_dfw_sections:
+                    section_rules = client_session.normalize_list_return(sptr['rule'])
+                    l3r_rule_list = dfw_rule_list_helper(client_session, section_rules, rule_list)
+        else:
+            l3r_rule_list = []
 
     return l2_rule_list, l3_rule_list, l3r_rule_list
 
