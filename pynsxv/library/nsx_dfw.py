@@ -201,7 +201,7 @@ def dfw_rule_delete(client_session, rule_id):
     dfw_rule_id = str(rule_id)
 
     for i, val in enumerate(l3_rule_list):
-        if dfw_rule_id == str(val[0]):
+        if dfw_rule_id == str(val[0]) and str(val[1]) != 'Default Rule':
             dfw_section_id = str(val[-1])
             section_list, dfwL3_section_details = dfw_section_read(client_session, dfw_section_id)
             etag = str(section_list[0][3])
@@ -209,9 +209,12 @@ def dfw_rule_delete(client_session, rule_id):
                                   additional_headers={'If-match': etag})
             result = [["True", dfw_rule_id, str(val[1]), str(val[-2]), str(val[-1])]]
             return result
+        else:
+            result = [["False-Delete Default Rule is not allowed", dfw_rule_id, "---", "---", "---"]]
+            return result
 
     for i, val in enumerate(l2_rule_list):
-        if dfw_rule_id == str(val[0]):
+        if dfw_rule_id == str(val[0]) and str(val[1]) != 'Default Rule':
             dfw_section_id = str(val[-1])
             section_list, dfwL2_section_details = dfw_section_read(client_session, dfw_section_id)
             etag = str(section_list[0][3])
@@ -219,14 +222,20 @@ def dfw_rule_delete(client_session, rule_id):
                                   additional_headers={'If-match': etag})
             result = [["True", dfw_rule_id, str(val[1]), str(val[-2]), str(val[-1])]]
             return result
+        else:
+            result = [["False-Delete Default Rule is not allowed", dfw_rule_id, "---", "---", "---"]]
+            return result
 
     for i, val in enumerate(l3r_rule_list):
-        if dfw_rule_id == str(val[0]):
+        if dfw_rule_id == str(val[0]) and str(val[1]) != 'Default Rule':
             dfw_section_id = str(val[-1])
             section_list, dfwL3r_section_details = dfw_section_read(client_session, dfw_section_id)
             etag = str(section_list[0][3])
             client_session.delete('rule', uri_parameters={'ruleID': dfw_rule_id, 'section': dfw_section_id})
             result = [["True", dfw_rule_id, str(val[1]), str(val[-2]), str(val[-1])]]
+            return result
+        else:
+            result = [["False-Delete Default Rule is not allowed", dfw_rule_id, "---", "---", "---"]]
             return result
 
     result = [["False", dfw_rule_id, "---", "---", "---"]]
