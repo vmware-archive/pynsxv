@@ -22,18 +22,21 @@
 # AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.”
 
-__author__ = 'yfauser'
-
 from pyVim.connect import SmartConnect
 from pyVmomi import vim
 import ssl
+
+__author__ = 'Dimitri Desmidt, Emanuele Mazza, Yves Fauser, Andreas La Quiante'
 
 
 VIM_TYPES = {'datacenter': [vim.Datacenter],
              'dvs_name': [vim.dvs.VmwareDistributedVirtualSwitch],
              'datastore_name': [vim.Datastore],
              'resourcepool_name': [vim.ResourcePool],
-             'host': [vim.HostSystem]}
+             'cluster': [vim.ClusterComputeResource],
+             'dvs_portgroup': [vim.DistributedVirtualPortgroup],
+             'host': [vim.HostSystem],
+             'vm': [vim.VirtualMachine]}
 
 
 def get_scope(client_session, transport_zone_name):
@@ -53,7 +56,6 @@ def get_scope(client_session, transport_zone_name):
 
     return vdn_scope['objectId'], vdn_scope
 
-
 def get_logical_switch(client_session, logical_switch_name):
     """
     :param client_session: An instance of an NsxClient Session
@@ -70,7 +72,6 @@ def get_logical_switch(client_session, logical_switch_name):
 
     return logical_switch_id, logical_switch_params
 
-
 def get_mo_by_name(content, searchedname, vim_type):
     mo_dict = get_all_objs(content, vim_type)
     for obj in mo_dict:
@@ -82,6 +83,7 @@ def get_mo_by_name(content, searchedname, vim_type):
 def get_all_objs(content, vimtype):
     obj = {}
     container = content.viewManager.CreateContainerView(content.rootFolder, vimtype, True)
+
     for managed_object_ref in container.view:
         obj.update({managed_object_ref: managed_object_ref.name})
     container.Destroy()
@@ -122,63 +124,53 @@ def get_edge(client_session, edge_name):
     try:
         edge_params = [scope for scope in all_edge if scope['name'] == edge_name][0]
         edge_id = edge_params['objectId']
+
     except IndexError:
         return None, None
 
     return edge_id, edge_params
 
-
 def get_datacentermoid(content, datacenter_name):
-    datacenter_list = content.rootFolder.childEntity
-    for datacenter in datacenter_list:
-        if datacenter.name == datacenter_name:
-            datacentermoid = datacenter._moId
-            return datacentermoid.encode("ascii")
-    return None
+    datacenter_mo = get_mo_by_name(content, datacenter_name, VIM_TYPES['datacenter'])
+    if datacenter_mo:
+        return str(datacenter_mo._moId)
+    else:
+        return None
 
+def get_datastoremoid(content, edge_datastore):
+    datastore_mo = get_mo_by_name(content, edge_datastore, VIM_TYPES['datastore_name'])
+    if datastore_mo:
+        return str(datastore_mo._moId)
+    else:
+        return None
 
-def get_datastoremoid(content, datacenter_name, edge_datastore):
-    datacenter_list = content.rootFolder.childEntity
-    for datacenter in datacenter_list:
-        if datacenter.name == datacenter_name:
-            for datastore in datacenter.datastore:
-                if datastore.name == edge_datastore:
-                    datastorename = datastore._moId
-                    return datastorename.encode("ascii")
-    return None
+def get_edgeresourcepoolmoid(content, edge_cluster):
+    cluser_mo = get_mo_by_name(content, edge_cluster, VIM_TYPES['cluster'])
+    if cluser_mo:
+        return str(cluser_mo._moId)
+    else:
+        return None
 
+def get_vdsportgroupid(content, switch_name):
+    portgroup_mo = get_mo_by_name(content, switch_name, VIM_TYPES['dvs_portgroup'])
+    if portgroup_mo:
+        return str(portgroup_mo._moId)
+    else:
+        return None
 
-def get_edgeresourcepoolmoid(content, datacenter_name, edge_cluster):
-    datacenter_list = content.rootFolder.childEntity
-    for datacenter in datacenter_list:
-        if datacenter.name == datacenter_name:
-            cluster_list = datacenter.hostFolder.childEntity
-            for cluster in cluster_list:
-                if cluster.name == edge_cluster:
-                    resourcepoolid = cluster.resourcePool._moId
-                    return resourcepoolid.encode("ascii")
-    return None
-
-
-def get_vdsportgroupid(content, datacenter_name, switch_name):
-    datacenter_list = content.rootFolder.childEntity
-    vdsportgroupid = ""
-    for datacenter in datacenter_list:
-        if datacenter.name == datacenter_name:
-            network_list = datacenter.network
-            for network in network_list:
-                if network.name == switch_name:
-                    vdsportgroupid = network._moId
-    if vdsportgroupid:
-        return vdsportgroupid.encode("ascii")
+def get_vm_by_name(content, vm_name):
+    vm_mo = get_mo_by_name(content, vm_name, VIM_TYPES['vm'])
+    if vm_mo:
+        return str(vm_mo._moId)
     else:
         return None
 
 
 def check_for_parameters(mandatory, args):
+    param = None
     try:
         for param in mandatory:
-            if args[param] == None:
+            if not args[param]:
                 print 'You are missing the mandatory parameter: {}'.format(param)
                 return None
     except KeyError:
@@ -186,3 +178,125 @@ def check_for_parameters(mandatory, args):
         return None
 
     return True
+
+
+def dfw_rule_list_helper(client_session, dfw_section, rule_list):
+    source_list = list()
+    destination_list = list()
+    service_list = list()
+    applyto_list = list()
+
+    for rptr in dfw_section:
+        rule_id = rptr['@id']
+        if 'name' in rptr:
+            rule_name = rptr['name']
+        else:
+            rule_name = str('')
+        rule_action = rptr['action']
+        rule_direction = rptr['direction']
+        rule_packetype = rptr['packetType']
+        rule_section_id = rptr['sectionId']
+
+        if 'sources' in rptr:
+            #print 'SOURCE IS SPECIFIED'
+            sources = client_session.normalize_list_return(rptr['sources']['source'])
+            #print ''
+            #print sources
+            #print ''
+            for srcptr in sources:
+                if srcptr['type'] == 'Ipv4Address':
+                    rule_source = str(srcptr['value'])
+                elif srcptr['type'] == 'VirtualMachine':
+                    rule_source = str(srcptr['name'])
+                else:
+                    rule_source = srcptr['name']
+                #print 'RULE SOURCE'
+                #print rule_source
+                #print 'SOURCE LIST'
+                #print source_list
+                source_list.append(rule_source)
+            #print ''
+            #print 'SOURCE APPENDED'
+            #print source_list
+            #print ''
+            source_list = " - ".join(source_list)
+        else:
+            #print 'SOURCE IS ANY'
+            source_list = 'any'
+        #print ''
+        #print source_list
+        #print ''
+
+        if 'destinations' in rptr:
+            #print 'DESTINATION IS SPECIFIED'
+            destinations = client_session.normalize_list_return(rptr['destinations']['destination'])
+            #print ''
+            #print destinations
+            #print ''
+            for dscptr in destinations:
+                if dscptr['type'] == 'Ipv4Address':
+                    rule_destination = dscptr['value']
+                elif dscptr['type'] == 'VirtualMachine':
+                    rule_destination = dscptr['name']
+                else:
+                    rule_destination = dscptr['name']
+                destination_list.append(rule_destination)
+            destination_list = ' - '.join(destination_list)
+        else:
+            #print 'DESTINATION IS ANY'
+            destination_list = 'any'
+        #print ''
+        #print destination_list
+        #print ''
+
+        if 'services' in rptr:
+            services = client_session.normalize_list_return(rptr['services']['service'])
+            for srvcptr in services:
+                if 'name' in srvcptr:
+                    rule_services = srvcptr['name']
+                    service_list.append(rule_services)
+                if 'protocol' in srvcptr:
+                    if 'sourcePort' in srvcptr:
+                        source_port = str(srvcptr['sourcePort'])
+                    else:
+                        source_port = 'any'
+                    if 'destinationPort' in srvcptr:
+                        destination_port = str(srvcptr['destinationPort'])
+                    else:
+                        destination_port = 'any'
+                    protocol = srvcptr['protocolName']
+                    rule_services = protocol + ':' + source_port + ':' + destination_port
+                    service_list.append(rule_services)
+            service_list = ' | '.join(service_list)
+        else:
+            #print 'SERVICE IS ANY'
+            service_list = 'any'
+        #print ''
+        #print service_list
+        #print ''
+
+        if 'appliedToList' in rptr:
+            #print 'APPLY-TO IS SPECIFIED'
+            applyto = client_session.normalize_list_return(rptr['appliedToList']['appliedTo'])
+            #print ''
+            #print applyto
+            #print ''
+            for apptr in applyto:
+                rule_applyto = apptr['name']
+                applyto_list.append(rule_applyto)
+            applyto_list = ' - '.join(applyto_list)
+        else:
+            #print 'APPLY-TO IS ANY'
+            applyto_list = 'any'
+        #print ''
+        #print applyto_list
+        #print ''
+
+        rule_list.append([rule_id, rule_name, source_list, destination_list, service_list, rule_action,
+                                     rule_direction, rule_packetype, applyto_list, rule_section_id])
+        source_list = list()
+        destination_list = list()
+        service_list = list()
+        applyto_list = list()
+
+    return rule_list

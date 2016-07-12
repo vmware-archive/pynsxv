@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 import io
 
 def read(*filenames, **kwargs):
@@ -14,9 +14,9 @@ long_description = read('README.rst')
 
 setup(
     name='PyNSXv',
-    version='0.3',
-    packages=['pynsxv'],
-    package_data={'pynsxv':['*'], 'pynsxv':['library/*']},
+    version='0.4',
+    packages=find_packages(),
+    package_data={'pynsxv':['nsx.ini', 'library/api_spec/nsxvapi.raml', 'library/api_spec/schemas/*']},
     url='http://github.com/vmware/pynsxv',
     license='MIT',
     author='Dimitri Desmidt, Emanuele Mazza, Yves Fauser',

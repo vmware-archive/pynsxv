@@ -31,6 +31,7 @@ from nsxramlclient.client import NsxClient
 from libutils import connect_to_vc
 from libutils import VIM_TYPES
 from libutils import get_all_objs
+from pkg_resources import resource_filename
 
 
 def host_prep_state(session):
@@ -138,7 +139,13 @@ def _usage_main(args):
     config = ConfigParser.ConfigParser()
     assert config.read(args.ini), 'could not read config file {}'.format(args.ini)
 
-    client_session = NsxClient(config.get('nsxraml', 'nsxraml_file'), config.get('nsxv', 'nsx_manager'),
+    try:
+        nsxramlfile = config.get('nsxraml', 'nsxraml_file')
+    except (ConfigParser.NoSectionError):
+        nsxramlfile_dir = resource_filename(__name__, 'api_spec')
+        nsxramlfile = '{}/nsxvapi.raml'.format(nsxramlfile_dir)
+
+    client_session = NsxClient(nsxramlfile, config.get('nsxv', 'nsx_manager'),
                                config.get('nsxv', 'nsx_username'), config.get('nsxv', 'nsx_password'), debug=debug)
 
     vccontent = connect_to_vc(config.get('vcenter', 'vcenter'), config.get('vcenter', 'vcenter_user'),

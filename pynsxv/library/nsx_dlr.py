@@ -32,6 +32,7 @@ from libutils import get_datacentermoid, get_edgeresourcepoolmoid, get_edge, get
 from tabulate import tabulate
 from nsxramlclient.client import NsxClient
 from argparse import RawTextHelpFormatter
+from pkg_resources import resource_filename
 
 
 def dlr_add_interface(client_session, dlr_id, interface_ls_id, interface_ip, interface_subnet):
@@ -58,7 +59,7 @@ def dlr_add_interface(client_session, dlr_id, interface_ls_id, interface_ip, int
     return dlr_interface
 
 
-def _dlr_add_interface(client_session, datacenter_name, vccontent, **kwargs):
+def _dlr_add_interface(client_session, vccontent, **kwargs):
     if not (kwargs['dlr_name'] and kwargs['interface_ls_name'] and kwargs['interface_ip']
             and kwargs['interface_subnet']):
         print ('Mandatory parameters missing, [-n NAME] [--interface_ls INTERFACE_LS] [--interface_ip INTERFACE_IP] '
@@ -72,7 +73,7 @@ def _dlr_add_interface(client_session, datacenter_name, vccontent, **kwargs):
     dlr_id, dlr_params = dlr_read(client_session, dlr_name)
     if dlr_id:
         # find interface_ls_id in vDS port groups or NSX logical switches
-        interface_ls_id = get_vdsportgroupid(vccontent, datacenter_name, interface_ls_name)
+        interface_ls_id = get_vdsportgroupid(vccontent, interface_ls_name)
         if not interface_ls_id:
             interface_ls_id, interface_ls_params = get_logical_switch(client_session, interface_ls_name)
             if not interface_ls_id:
@@ -221,12 +222,12 @@ def _dlr_create(client_session, vccontent, datacenter_name, edge_datastore, edge
     dlr_size = kwargs['dlr_size']
 
     datacentermoid = get_datacentermoid(vccontent, datacenter_name)
-    datastoremoid = get_datastoremoid(vccontent, datacenter_name, edge_datastore)
-    resourcepoolid = get_edgeresourcepoolmoid(vccontent, datacenter_name, edge_cluster)
+    datastoremoid = get_datastoremoid(vccontent, edge_datastore)
+    resourcepoolid = get_edgeresourcepoolmoid(vccontent, edge_cluster)
 
     ha_ls_name = kwargs['ha_ls_name']
     # find ha_ls_id in vDS port groups or NSX logical switches
-    ha_ls_id = get_vdsportgroupid(vccontent, datacenter_name, ha_ls_name)
+    ha_ls_id = get_vdsportgroupid(vccontent, ha_ls_name)
     if not ha_ls_id:
         ha_ls_id, ha_ls_switch_params = get_logical_switch(client_session, ha_ls_name)
         if not ha_ls_id:
@@ -238,7 +239,7 @@ def _dlr_create(client_session, vccontent, datacenter_name, edge_datastore, edge
     uplink_subnet = kwargs['uplink_subnet']
     uplink_dgw = kwargs['uplink_dgw']
     # find uplink_ls_id in vDS port groups or NSX logical switches
-    uplink_ls_id = get_vdsportgroupid(vccontent, datacenter_name, uplink_ls_name)
+    uplink_ls_id = get_vdsportgroupid(vccontent, uplink_ls_name)
     if not uplink_ls_id:
         uplink_ls_id, uplink_ls_switch_params = get_logical_switch(client_session, uplink_ls_name)
         if not uplink_ls_id:
@@ -411,15 +412,15 @@ def contruct_parser(subparsers):
                                    help="Functions for distributed logical routers",
                                    formatter_class=RawTextHelpFormatter)
     parser.add_argument("command", help="""
-    create:         create a new dlr
-    read:           return the id of a dlr
-    delete:         delete a dlr
-    list:           return a list of all dlr
-    dgw_set:        set dlr default gateway ip address
-    dgw_del:        delete dlr default gateway ip address
-    add_interface:  add interface in dlr
-    del_interface:  delete interface of dlr
-    list_interfaces:list all interfaces of dlr
+    create:             create a new dlr
+    read:               return the id of a dlr
+    delete:             delete a dlr
+    list:               return a list of all dlr
+    set_dgw:            set dlr default gateway ip address
+    delete_dgw:         delete dlr default gateway ip address
+    add_interface:      add interface in dlr
+    delete_interface:   delete interface of dlr
+    list_interfaces:    list all interfaces of dlr
     """)
 
     parser.add_argument("-n",
@@ -462,7 +463,13 @@ def _dlr_main(args):
     config = ConfigParser.ConfigParser()
     assert config.read(args.ini), 'could not read config file {}'.format(args.ini)
 
-    client_session = NsxClient(config.get('nsxraml', 'nsxraml_file'), config.get('nsxv', 'nsx_manager'),
+    try:
+        nsxramlfile = config.get('nsxraml', 'nsxraml_file')
+    except (ConfigParser.NoSectionError):
+        nsxramlfile_dir = resource_filename(__name__, 'api_spec')
+        nsxramlfile = '{}/nsxvapi.raml'.format(nsxramlfile_dir)
+
+    client_session = NsxClient(nsxramlfile, config.get('nsxv', 'nsx_manager'),
                                config.get('nsxv', 'nsx_username'), config.get('nsxv', 'nsx_password'), debug=debug)
 
     vccontent = connect_to_vc(config.get('vcenter', 'vcenter'), config.get('vcenter', 'vcenter_user'),
@@ -478,10 +485,10 @@ def _dlr_main(args):
             'create': _dlr_create,
             'delete': _dlr_delete,
             'read': _dlr_read,
-            'dgw_set': _dlr_set_dgw,
-            'dgw_del': _dlr_del_dgw,
+            'set_dgw': _dlr_set_dgw,
+            'delete_dgw': _dlr_del_dgw,
             'add_interface': _dlr_add_interface,
-            'del_interface': _dlr_del_interface,
+            'delete_interface': _dlr_del_interface,
             'list_interfaces': _dlr_list_interfaces,
         }
         command_selector[args.command](client_session, vccontent=vccontent,

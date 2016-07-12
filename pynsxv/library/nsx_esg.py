@@ -32,6 +32,7 @@ from libutils import get_datacentermoid, get_edgeresourcepoolmoid, get_edge, get
 from tabulate import tabulate
 from nsxramlclient.client import NsxClient
 from argparse import RawTextHelpFormatter
+from pkg_resources import resource_filename
 
 
 def esg_create(client_session, esg_name, esg_pwd, esg_size, datacentermoid, datastoremoid, resourcepoolid, default_pg,
@@ -88,9 +89,9 @@ def _esg_create(client_session, vccontent, **kwargs):
     if not check_for_parameters(needed_params, kwargs):
         return None
     datacentermoid = get_datacentermoid(vccontent, kwargs['datacenter_name'])
-    datastoremoid = get_datastoremoid(vccontent, kwargs['datacenter_name'], kwargs['edge_datastore'])
-    resourcepoolid = get_edgeresourcepoolmoid(vccontent, kwargs['datacenter_name'], kwargs['edge_cluster'])
-    portgroupmoid = get_vdsportgroupid(vccontent, kwargs['datacenter_name'], kwargs['portgroup'])
+    datastoremoid = get_datastoremoid(vccontent, kwargs['edge_datastore'])
+    resourcepoolid = get_edgeresourcepoolmoid(vccontent, kwargs['edge_cluster'])
+    portgroupmoid = get_vdsportgroupid(vccontent, kwargs['portgroup'])
 
     esg_id, esg_params = esg_create(client_session, kwargs['esg_name'], kwargs['esg_pwd'], kwargs['esg_size'],
                                     datacentermoid, datastoremoid, resourcepoolid, portgroupmoid,
@@ -260,7 +261,7 @@ def _esg_cfg_interface(client_session, vccontent, **kwargs):
         lsid, lsparams = get_logical_switch(client_session, kwargs['logical_switch'])
         portgroup = lsid
     elif kwargs['portgroup']:
-        pgid = get_vdsportgroupid(vccontent, kwargs['datacenter_name'], kwargs['portgroup'])
+        pgid = get_vdsportgroupid(vccontent, kwargs['portgroup'])
         portgroup = pgid
     else:
         portgroup = None
@@ -339,7 +340,7 @@ def esg_list_interfaces(client_session, esg_name):
     """
     :param client_session: An instance of an NsxClient Session
     :param esg_name: The name of the ESG to list interfaces of
-    :return: returns a list of tuples with
+    :return: returns two tuples, the first is a list of tuples with
              item 0 containing the vnic Name as string,
              item 1 containing the vnic index as string,
              item 2 containing the ip as string,
@@ -722,7 +723,7 @@ def contruct_parser(subparsers):
     del_dgw:          delete ESG default gateway ip address
     read_dgw:         show the configured default gateway
     add_route:        Add a static route to an ESG
-    del_route:        Delete a static route from an ESG
+    delete_route:     Delete a static route from an ESG
     list_routes:      List all configured static routes on an ESG
     cfg_interface:    Configure IP and other interface details
     clear_interface:  remove all configuration from an interface
@@ -802,7 +803,13 @@ def _esg_main(args):
     config = ConfigParser.ConfigParser()
     assert config.read(args.ini), 'could not read config file {}'.format(args.ini)
 
-    client_session = NsxClient(config.get('nsxraml', 'nsxraml_file'), config.get('nsxv', 'nsx_manager'),
+    try:
+        nsxramlfile = config.get('nsxraml', 'nsxraml_file')
+    except (ConfigParser.NoSectionError):
+        nsxramlfile_dir = resource_filename(__name__, 'api_spec')
+        nsxramlfile = '{}/nsxvapi.raml'.format(nsxramlfile_dir)
+
+    client_session = NsxClient(nsxramlfile, config.get('nsxv', 'nsx_manager'),
                                config.get('nsxv', 'nsx_username'), config.get('nsxv', 'nsx_password'), debug=debug)
 
     vccontent = connect_to_vc(config.get('vcenter', 'vcenter'), config.get('vcenter', 'vcenter_user'),
@@ -837,7 +844,7 @@ def _esg_main(args):
             'list_interfaces': _esg_list_interfaces,
             'set_fw_status': _esg_fw_default_set,
             'add_route': _esg_route_add,
-            'del_route': _esg_route_del,
+            'delete_route': _esg_route_del,
             'list_routes': _esg_route_list
         }
         command_selector[args.command](client_session, vccontent=vccontent, esg_name=args.esg_name,

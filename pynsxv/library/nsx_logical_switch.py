@@ -32,6 +32,7 @@ from libutils import get_logical_switch
 from tabulate import tabulate
 from nsxramlclient.client import NsxClient
 from argparse import RawTextHelpFormatter
+from pkg_resources import resource_filename
 
 
 def logical_switch_create(client_session, transport_zone, logical_switch_name, control_plane_mode=None):
@@ -195,7 +196,13 @@ def _lswitch_main(args):
     else:
         transport_zone = config.get('defaults', 'transport_zone')
 
-    client_session = NsxClient(config.get('nsxraml', 'nsxraml_file'), config.get('nsxv', 'nsx_manager'),
+    try:
+        nsxramlfile = config.get('nsxraml', 'nsxraml_file')
+    except (ConfigParser.NoSectionError):
+        nsxramlfile_dir = resource_filename(__name__, 'api_spec')
+        nsxramlfile = '{}/nsxvapi.raml'.format(nsxramlfile_dir)
+
+    client_session = NsxClient(nsxramlfile, config.get('nsxv', 'nsx_manager'),
                                config.get('nsxv', 'nsx_username'), config.get('nsxv', 'nsx_password'), debug=debug)
 
     try:
