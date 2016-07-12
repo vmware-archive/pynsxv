@@ -95,10 +95,17 @@ def connect_to_vc(vchost, user, pwd):
         context.verify_mode = ssl.CERT_NONE
     else:
         context = None
-    if context:
-        service_instance = SmartConnect(host=vchost, user=user, pwd=pwd, sslContext=context)
+
+    if vchost.find(':') != -1:
+        host, port = vchost.split(':')
     else:
-        service_instance = SmartConnect(host=vchost, user=user, pwd=pwd)
+        host = vchost
+        port = 443
+
+    if context:
+        service_instance = SmartConnect(host=host, port=port, user=user, pwd=pwd, sslContext=context)
+    else:
+        service_instance = SmartConnect(host=host, port=port, user=user, pwd=pwd)
 
     return service_instance.RetrieveContent()
 
