@@ -1,16 +1,211 @@
 PyNSXv
 ======
 
-PyNSXv is a higher level python based library (exposing ready to use
-workflows) and a CLI tool to control NSX for vSphere
+PyNSXv is a high level python based library that exposes ready to use
+work-flows and a CLI tool that can be used to control VMware NSX for
+vSphere
 
 PyNSXv can be used in two different ways, as a library by importing the
-files in the /library subdirectory into your code, or as a cli tool by
-calling ``pynsxv``\ on the CLI after you installed pynsxv using pip on
-your system
+files in the /library subdirectory into your code, or as a CLI tool by
+executing ``pynsxv``\ on the command line after installation. To install
+PyNSXv you can use PIP on your system
 
-**More extensive documentation will follow soon, including python and
-shell script examples**
+Table of Contents
+~~~~~~~~~~~~~~~~~
+
+| **`Using PyNSXv as a CLI
+  Tool <#Using%20PyNSXv%20as%20a%20CLI%20Tool>`__**
+| **`Using PyNSXv as a Python
+  Library <#Using%20PyNSXv%20as%20a%20Python%20Library>`__**
+| **`Dependencies <#Dependencies>`__**
+| **`Installing PyNSXv <#Installing%20PyNSXv>`__**
+| **`Contributing <#Contributing>`__**
+| **`License <#License>`__**
+
+Using PyNSXv as a CLI Tool
+==========================
+
+After you installed PyNSXv, the first thing you have to do is to create
+your a ``ini`` file that contains the host names and credentials of your
+vCenter and NSX Manager.
+
+If you have multiple NSX environments, you can create multiple ``ini``
+files and reference to them using the ``-i`` command line option. By
+default PyNSXv will look for a file called ``nsx.ini`` in the path your
+are running the pynsxv command in.
+
+The ``ini`` file has the following format:
+
+.. code:: ini
+
+    # [nsxraml]
+    # nsxraml_file = <>
+    # Uncomment the above section and add the path to the raml spec you want to use instead of the bundled version
+
+    [nsxv]
+    nsx_manager = <nsx_manager_IP>
+    nsx_username = admin
+    nsx_password = <nsx_manager_password>
+
+    [vcenter]
+    vcenter = <VC_IP_or_Hostname>
+    vcenter_user = administrator@domain.local
+    vcenter_passwd = <vc_password>
+
+    [defaults]
+    transport_zone = <transport_zone_name>
+    datacenter_name = <vcenter datacenter name>
+    edge_datastore = <datastore name to deploy edges in>
+    edge_cluster = <vcenter cluster for edge gateways>
+
+After placing the ``nsx.ini`` file in you path, you can run pynsxv from
+your shell or cmd prompt. On Linux and Mac simply use ``pynsxv``
+followed by the subcommand. On Windows you will need to type
+``pynsxv.exe`` followed by the subcommand:
+
+::
+
+    ▶ pynsxv -h
+    usage: pynsxv [-h] [-i INI] [-v] [-d] {lswitch,dlr,esg,dhcp,dfw,usage} ...
+
+    PyNSXv Command Line Client for NSX for vSphere
+
+    positional arguments:
+      {lswitch,dlr,esg,dhcp,dfw,usage}
+        lswitch             Functions for logical switches
+        dlr                 Functions for distributed logical routers
+        esg                 Functions for edge services gateways
+        dhcp                Functions for Edge DHCP
+        dfw                 Functions for distributed firewall
+        usage               Functions to retrieve NSX-v usage statistics
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -i INI, --ini INI     nsx configuration file
+      -v, --verbose         increase output verbosity
+      -d, --debug           print low level debug of http transactions
+
+Here is an example output using the lswitch subcommand:
+
+::
+
+    ▶ pynsxv lswitch list
+    +---------------------+----------------+
+    | LS name             | LS ID          |
+    |---------------------+----------------|
+    | edge_ls             | virtualwire-63 |
+    | dlr_ls              | virtualwire-64 |
+    +---------------------+----------------+
+
+| Each subcommand has its own set of subcommands, as well as arguments.
+| You can see what is available by using ``-h`` after the first
+  subcommand:
+
+::
+
+    ▶ pynsxv lswitch -h
+    usage: cli.py lswitch [-h] [-t TRANSPORT_ZONE] [-n NAME] command
+
+    Functions for logical switches
+
+    positional arguments:
+      command
+                                create: create a new logical switch
+                                read:   return the virtual wire id of a logical switch
+                                delete: delete a logical switch"
+                                list:   return a list of all logical switches
+
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -t TRANSPORT_ZONE, --transport_zone TRANSPORT_ZONE
+                            nsx transport zone
+      -n NAME, --name NAME  logical switch name, needed for create, read and delete
+
+You can also use the ``-v`` switch of the main pynsxv command to switch
+to a json formated output for use with shell scripts
+
+Using PyNSXv as a Python Library
+================================
+
+When using PyNSXv as a Python library you can either download the
+individual modules in ``/library`` of this repo and import them in your
+code, or you can install PyNSXv and import the modules from your python
+path for pip installed modules.
+
+| To use the modules you will also need to have at least the
+  ``nsxramlclient`` installed (https://github.com/vmware/nsxramlclient).
+| You will also need a copy of the latest RAML API Spec of NSX for
+  vSphere (https://github.com/vmware/nsxraml).
+
+| Import the module you want to use, as well as the NsxClient Class of
+  the ``nsxramlclient``.
+| Then instantiate a session object of the NsxClient Class, and pass
+  this session object to the function you want to use out of the module
+  imported from PyNSXv. Here's an example:
+
+.. code:: ipython
+
+    ▶ ipython
+    Python 2.7.11 (default, Jun 17 2016, 20:01:51)
+    Type "copyright", "credits" or "license" for more information.
+
+    IPython 4.2.0 -- An enhanced Interactive Python.
+    ?         -> Introduction and overview of IPython's features.
+    %quickref -> Quick reference.
+    help      -> Python's own help system.
+    object?   -> Details about 'object', use 'object??' for extra details.
+
+    In [1]: from pynsxv.library.nsx_logical_switch import logical_switch_list,logical_switch_create
+
+    In [2]: from nsxramlclient.client import NsxClient
+
+    In [3]: nsxraml_file = '/raml/nsxraml/nsxvapi.raml'
+    In [4]: nsxmanager = 'nsxmanager.invalid.org'
+    In [5]: nsx_username = 'admin'
+    In [6]: nsx_password = 'vmware'
+
+    In [7]: client_session = NsxClient(nsxraml_file, nsxmanager, nsx_username, nsx_password)
+
+    In [8]: lswitch_list = logical_switch_list(client_session)
+
+    In [9]: lswitch_list
+    Out[9]:
+    ([('k8s-dlr-plr-transit', 'virtualwire-39'),
+      ('k8s-minion-1', 'virtualwire-40'),
+      ('k8s-minion-2', 'virtualwire-41'),
+      ('vic-external', 'virtualwire-51'),
+      ('vic-container-net1', 'virtualwire-52'),
+      ('edge_ls', 'virtualwire-63'),
+      ('dlr_ls', 'virtualwire-64')],
+     [{'clientHandle': None,
+       'controlPlaneMode': 'HYBRID_MODE',
+       'ctrlLsUuid': 'e0c72e20-f39e-41ba-adb4-f0b191521c0c',
+       'description': None,
+       'extendedAttributes': None,
+       'guestVlanAllowed': 'false',
+       'isUniversal': 'false',
+
+       .... Output truncated ....
+
+    In [10]: new_lswitch = logical_switch_create(client_session, 'TZ1', 'new_lswitch_name')
+
+    In [11]: new_lswitch
+    Out[12]: ('virtualwire-65', '/api/2.0/vdn/virtualwires/virtualwire-65')
+
+All module function have inline documentation available to guide you
+through the needed parameters:
+
+::
+
+    In [1]: help(logical_switch_list)
+
+    logical_switch_list(client_session)
+        This function returns all logical switches found in NSX
+        :param client_session: An instance of an NsxClient Session
+        :return: returns a tuple, the first item is a list of tuples with item 0 containing the LS Name as string
+                 and item 1 containing the LS id as string. The second item contains a list of dictionaries containing
+                 all logical switch details
 
 Dependencies
 ============
@@ -31,6 +226,33 @@ PyNSXv can be installed using pip:
 .. code:: shell
 
     pip install pynsxv
+
+| **`Installing PyNSXv on
+  Ubuntu <###Installing%20PyNSXv%20on%20Ubuntu>`__**
+| **`Installing PyNSXv on a
+  MAC <###Installing%20PyNSXv%20on%20a%20MAC>`__**
+| **`Installing PyNSXv on
+  Windows <###Installing%20PyNSXv%20on%20Windows>`__**
+| **`Various caveats <###Various%20caveats>`__**
+
+Installing PyNSXv on Ubuntu
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+First update/upgrade using apt and install the python-openssl, libxml
+and libxslt dependencies of the ``nsxramclient`` using apt. Please also
+consult the Github page of the ``nsxramclient`` and ``pyvmomi`` in case
+you run into issues during the installation of these dependencies.
+
+.. code:: shell
+
+    apt-get update && apt-get upgrade -y
+    apt-get install python-openssl libxml2-dev libxslt-dev python-dev zlib1g-dev python-pip -y
+
+After this you can simply install PyNSXv using pip:
+
+.. code:: shell
+
+    sudo pip install pynsxv
 
 Installing PyNSXv on a MAC
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -99,6 +321,11 @@ You should install a new non-bundled python version:
     pip install pyopenssl
     pip install pynsxv
 
+Installing PyNSXv on Windows
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**To be Done**
+
 Various caveats
 ~~~~~~~~~~~~~~~
 
@@ -111,3 +338,53 @@ folder:
 .. code:: shell
 
     chmod g-wx,o-wx ~/.python-eggs
+
+Contributing
+============
+
+Everyone is more than welcome to contribute to PyNSXv. If you come up
+with any interesting additional subcommand, workflow, bugfix that you
+would like to share, you can simply send us a pull request. Should you
+be interested in helping us coding missing functionality, you can see
+what we are tracking as enhancements in the Github Issue tracker of this
+repository. Before sending us your pull request, please make sure that
+you pull the latest code from the ``devel`` branch, and base your
+additions from this branch. Also note that you might be requested to
+sign a Contributor License Agreement before we can merge your code. This
+happens automatically when you submit your first pull request.
+
+If you don't want to code, we still very much welcome any help with
+testing and requests for additional functionality. Please don't hesitate
+to contact us and open tickets in the Github Issue tracker if you need
+help using PyNSXv.
+
+License
+=======
+
+Licensed under the X11 (MIT)license (the “License”) set forth below; you
+may not use this file except in compliance with the License. 
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an “AS IS” BASIS,
+without warranties or conditions of any kind, EITHER EXPRESS OR IMPLIED.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be included
+in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
