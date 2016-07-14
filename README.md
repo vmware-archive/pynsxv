@@ -263,13 +263,16 @@ pip install pynsxv
 
 ###Installing PyNSXv on Windows
 
-Install python 2.x on your Windows (https://www.python.org/downloads/).
-Note: Attention do NOT install python 3.x.
+Install python 2.x on your Windows (https://www.python.org/downloads/). *Note: Attention do NOT install python 3.x.*
 
 Add python installation folder in the Windows path to be able to run the pynsxv CLI from any folder (Under "Control Panel – Environment Variables", edit the System Variable "Path", and add the "Python27\Scripts" folder).
 
 Install of pynsxv.
+```
+C:\>pip install pynsxv
 
+C:\>pip install pyOpenSSL
+```
 
 ###Various caveats
 
