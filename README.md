@@ -11,6 +11,7 @@ PyNSXv can be used in two different ways, as a library by importing the files in
 **[Contributing](#Contributing)**   
 **[License](#License)** 
 
+<a name="Using PyNSXv as a CLI Tool"></a>
 #Using PyNSXv as a CLI Tool
 
 After you installed PyNSXv, the first thing you have to do is to create your a `ini` file that contains the host names and credentials of your vCenter and NSX Manager. 
@@ -101,7 +102,7 @@ optional arguments:
 
 You can also use the `-v` switch of the main pynsxv command to switch to a json formated output for use with shell scripts
 
-
+<a name="Using PyNSXv as a Python Library"></a>
 #Using PyNSXv as a Python Library
 
 When using PyNSXv as a Python library you can either download the individual modules in `/library` of this repo and import them in your code, or you can install PyNSXv and import the modules from your python path for pip installed modules.   
@@ -174,6 +175,7 @@ logical_switch_list(client_session)
              all logical switch details
 ```
 
+<a name="Dependencies"></a>
 #Dependencies
 PyNSXv has the following dependencies:
 - pyvmomi (https://github.com/vmware/pyvmomi)
@@ -182,6 +184,7 @@ PyNSXv has the following dependencies:
 
 Please check the installation instructions of these projects if you run into installation issues
 
+<a name="Installing PyNSXv"></a>
 #Installing PyNSXv
 
 PyNSXv can be installed using pip:
@@ -194,6 +197,7 @@ pip install pynsxv
 **[Installing PyNSXv on Windows](###Installing PyNSXv on Windows)**    
 **[Various caveats](###Various caveats)**   
 
+<a name="Installing PyNSXv on Ubuntu"></a>
 ###Installing PyNSXv on Ubuntu
 
 First update/upgrade using apt and install the python-openssl, libxml and libxslt dependencies of the `nsxramclient` using apt. Please also consult the Github page of the `nsxramclient` and `pyvmomi` in case you run into issues during the installation of these dependencies.
@@ -209,6 +213,7 @@ After this you can simply install PyNSXv using pip:
 sudo pip install pynsxv
 ```
 
+<a name="Installing PyNSXv on a MAC"></a>
 ###Installing PyNSXv on a MAC
 
 Make sure to install XCODE and its Command Line utilities:
@@ -261,6 +266,7 @@ pip install pyopenssl
 pip install pynsxv
 ```
 
+<a name="Installing PyNSXv on Windows"></a>
 ###Installing PyNSXv on Windows
 
 Install python 2.x on your Windows (https://www.python.org/downloads/). *Note: Attention do NOT install python 3.x.*
@@ -274,6 +280,7 @@ C:\>pip install pynsxv
 C:\>pip install pyOpenSSL
 ```
 
+<a name="Various caveats"></a>
 ###Various caveats
 
 Should you see this warning message:
@@ -284,6 +291,7 @@ You can solve this by changing the permissions of the .python-eggs folder:
 chmod g-wx,o-wx ~/.python-eggs
 ```
 
+<a name="Contributing"></a>
 #Contributing
 
 Everyone is more than welcome to contribute to PyNSXv. If you come up with any interesting additional subcommand, workflow, bugfix that you would like to share, you can simply send us a pull request. Should you be interested in helping us coding missing functionality, you can see what we are tracking as enhancements in the Github Issue tracker of this repository.
@@ -291,6 +299,7 @@ Before sending us your pull request, please make sure that you pull the latest c
 
 If you don't want to code, we still very much welcome any help with testing and requests for additional functionality. Please don't hesitate to contact us and open tickets in the Github Issue tracker if you need help using PyNSXv.
 
+<a name="License"></a>
 #License
 
 Licensed under the X11 (MIT)license (the “License”) set forth below; you may not use this file except in compliance with the License. 
