@@ -14,6 +14,7 @@ pynsxv/library/__init__.pyc
 pynsxv/library/libutils.py
 pynsxv/library/libutils.pyc
 pynsxv/library/nsx_dfw.py
+pynsxv/library/nsx_dhcp.py
 pynsxv/library/nsx_dlr.py
 pynsxv/library/nsx_dlr.pyc
 pynsxv/library/nsx_esg.py
