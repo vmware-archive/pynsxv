@@ -85,11 +85,11 @@ def add_app_profile(client_session, esg_name, prof_name, template, persistence=N
 
 
 def _add_app_profile(client_session, **kwargs):
-    needed_params = ['esg_name', 'profile_name', 'profile_type']
+    needed_params = ['esg_name', 'profile_name', 'protocol']
     if not check_for_parameters(needed_params, kwargs):
         return None
 
-    result = add_app_profile(client_session, kwargs['esg_name'], kwargs['profile_name'], kwargs['profile_type'],
+    result = add_app_profile(client_session, kwargs['esg_name'], kwargs['profile_name'], kwargs['protocol'],
                              persistence=kwargs['persistence'], expire_time=kwargs['expire'],
                              cookie_name=kwargs['cookie_name'], cookie_mode=kwargs['cookie_mode'],
                              xforwardedfor=kwargs['xforwardedfor'], http_redir_url=kwargs['http_redir_url'])
@@ -538,20 +538,228 @@ def _list_members(client_session, **kwargs):
                                              "Max Conn", "Min Conn", "Condition"], tablefmt="psql")
 
 
+def add_vip(client_session, esg_name, vip_name, app_profile, vip_ip, protocol, port, pool_name, vip_description=None,
+            conn_limit=None, conn_rate_limit=None):
+    esg_id, esg_params = get_edge(client_session, esg_name)
+    if not esg_id:
+        return None
+
+    pool_id, pool_details = read_pool(client_session, esg_name, pool_name)
+    if not pool_id:
+        return None
+
+    prof_id, prof_details = read_app_profile(client_session, esg_name, app_profile)
+    if not prof_id:
+        return None
+
+    vip = client_session.extract_resource_body_example('virtualServers', 'create')
+
+    vip['virtualServer']['name'] = vip_name
+    vip['virtualServer']['description'] = vip_description
+    vip['virtualServer']['enabled'] = 'true'
+    vip['virtualServer']['ipAddress'] = vip_ip
+    vip['virtualServer']['protocol'] = protocol
+    vip['virtualServer']['port'] = port
+    vip['virtualServer']['connectionLimit'] = conn_limit
+    vip['virtualServer']['connectionRateLimit'] = conn_rate_limit
+    vip['virtualServer']['applicationProfileId'] = prof_id
+    vip['virtualServer']['defaultPoolId'] = pool_id
+    vip['virtualServer']['enableServiceInsertion'] = 'false'
+    vip['virtualServer']['accelerationEnabled'] = 'false'
+
+    result = client_session.create('virtualServers', uri_parameters={'edgeId': esg_id}, request_body_dict=vip)
+
+    if result['status'] != 201:
+        return None
+    else:
+        return result['objectId']
+
+
+def _add_vip(client_session, **kwargs):
+    needed_params = ['esg_name', 'pool_name', 'vip_name', 'profile_name', 'vip_ip', 'port', 'protocol']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+    result = add_vip(client_session, kwargs['esg_name'], kwargs['vip_name'], kwargs['profile_name'], kwargs['vip_ip'],
+                     kwargs['protocol'], kwargs['port'], kwargs['pool_name'], kwargs['vip_description'],
+                     kwargs['conn_limit'], kwargs['conn_rate_limit'])
+
+    if result and kwargs['verbose']:
+        print result
+    elif result:
+        print 'LB VIP configuration on esg {} succeeded, the VIP Id is {}'.format(kwargs['esg_name'], result)
+    else:
+        print 'LB VIP configuration on esg {} failed'.format(kwargs['esg_name'])
+
+
+def read_vip(client_session, esg_name, vip_name):
+    esg_id, esg_params = get_edge(client_session, esg_name)
+    if not esg_id:
+        return None, None
+
+    vip_list, vip_list_verbose = list_vips(client_session, esg_name)
+
+    try:
+        vip_id = [vip[0] for vip in vip_list if vip[1] == vip_name][0]
+    except IndexError:
+        return None, None
+
+    result = client_session.read('virtualServer', uri_parameters={'edgeId': esg_id, 'virtualserverID': vip_id})
+
+    vip_id = result['body']['virtualServer']['virtualServerId']
+    vip_details = result['body']['virtualServer']
+
+    return vip_id, vip_details
+
+
+def _read_vip(client_session, **kwargs):
+    needed_params = ['esg_name', 'vip_name']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+    vip_id, vip_details = read_vip(client_session, kwargs['esg_name'], kwargs['vip_name'])
+
+    if kwargs['verbose']:
+        print vip_id
+    else:
+        print 'LB Server Pool {} on ESG {} has the Id: {}'.format(kwargs['profile_name'],
+                                                                  kwargs['esg_name'], vip_id)
+
+
+def delete_vip(client_session, esg_name, vip_id):
+    esg_id, esg_params = get_edge(client_session, esg_name)
+    if not esg_id:
+        return None
+
+    result = client_session.delete('virtualServer', uri_parameters={'edgeId': esg_id, 'virtualserverID': vip_id})
+
+    if result['status'] == 204:
+        return True
+    else:
+        return None
+
+
+def _delete_vip(client_session, **kwargs):
+    needed_params = ['esg_name', 'vip_id']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+    result = delete_vip(client_session, kwargs['esg_name'], kwargs['vip_id'])
+
+    if result:
+        print 'Deleting VIP {} on esg {} succeeded'.format(kwargs['vip_id'], kwargs['esg_name'])
+    else:
+        print 'Deleting VIP {} on esg {} failed'.format(kwargs['vip_id'], kwargs['esg_name'])
+
+
+def list_vips(client_session, esg_name):
+    esg_id, esg_params = get_edge(client_session, esg_name)
+    if not esg_id:
+        return None
+
+    vips_api = client_session.read('virtualServers', uri_parameters={'edgeId': esg_id})['body']
+
+    if vips_api['loadBalancer']:
+        if 'virtualServer' in vips_api['loadBalancer']:
+            vips = client_session.normalize_list_return(vips_api['loadBalancer']['virtualServer'])
+        else:
+            vips = []
+    else:
+        vips = []
+
+    vips_lst = [(vip.get('virtualServerId'), vip.get('name'), vip.get('description'), vip.get('enabled'),
+                 vip.get('ipAddress'), vip.get('protocol'), vip.get('port'), vip.get('defaultPoolId'),
+                 vip.get('applicationProfileId'), vip.get('connectionLimit'), vip.get('connectionRateLimit'),
+                 vip.get('accelerationEnabled')) for vip in vips]
+
+    vips_lst_verbose = [vip for vip in vips]
+
+    return vips_lst, vips_lst_verbose
+
+
+def _list_vips(client_session, **kwargs):
+    needed_params = ['esg_name']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+    vip_list, vip_list_verbose = list_vips(client_session, kwargs['esg_name'])
+
+    if kwargs['verbose']:
+        print json.dumps(vip_list_verbose)
+    else:
+        print tabulate(vip_list, headers=["VIP Id", "Name", "Desc.", "Enabled", "VIP", "Proto", "Port", "Bound Pool",
+                                          "App Prof.", "Conn Limit", "Conn Rate Limit", "Accel. Enabled"],
+                       tablefmt="psql")
+
+
 def read_monitor(client_session, esg_name, monitor_name):
     esg_id, esg_params = get_edge(client_session, esg_name)
     if not esg_id:
+        return None, None
+
+    mon_list, mon_list_verbose = list_monitors(client_session, esg_name)
+
+    try:
+        mon_id = [mon[0] for mon in mon_list if mon[1] == monitor_name][0]
+    except IndexError:
+        return None, None
+
+    result = client_session.read('lbMonitor', uri_parameters={'edgeId': esg_id, 'monitorID': mon_id})
+
+    mon_id = result['body']['monitor']['monitorId']
+    mon_details = result['body']['monitor']
+
+    return mon_id, mon_details
+
+
+def _read_monitor(client_session, **kwargs):
+    needed_params = ['esg_name', 'monitor']
+    if not check_for_parameters(needed_params, kwargs):
         return None
 
-    #TODO: Change the hard-coded monitor to retrieve the monitor Id by name
+    mon_id, mon_details = read_monitor(client_session, kwargs['esg_name'], kwargs['monitor'])
 
-    return 'monitor-1', None
+    if kwargs['verbose']:
+        print mon_id
+    else:
+        print 'LB Monitor {} on ESG {} has the Id: {}'.format(kwargs['monitor'], kwargs['esg_name'], mon_id)
 
 
-def list_monitors(client_session, esg_name,):
+def list_monitors(client_session, esg_name):
     esg_id, esg_params = get_edge(client_session, esg_name)
     if not esg_id:
         return None
+
+    mons_api = client_session.read('lbMonitors', uri_parameters={'edgeId': esg_id})['body']
+
+    if mons_api['loadBalancer']:
+        if 'monitor' in mons_api['loadBalancer']:
+            mons = client_session.normalize_list_return(mons_api['loadBalancer']['monitor'])
+        else:
+            mons = []
+    else:
+        mons = []
+
+    mons_lst = [(mon.get('monitorId'), mon.get('name'), mon.get('interval'), mon.get('timeout'),
+                 mon.get('maxRetries'), mon.get('type')) for mon in mons]
+
+    mons_lst_verbose = [mon for mon in mons]
+
+    return mons_lst, mons_lst_verbose
+
+
+def _list_monitors(client_session, **kwargs):
+    needed_params = ['esg_name']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+    mon_list, mon_list_verbose = list_monitors(client_session, kwargs['esg_name'])
+
+    if kwargs['verbose']:
+        print json.dumps(mon_list_verbose)
+    else:
+        print tabulate(mon_list, headers=["Monitor Id", "Monitor Name", "Interval", "Timeout", "Max retries", "Type"],
+                       tablefmt="psql")
 
 
 def contruct_parser(subparsers):
@@ -575,6 +783,12 @@ def contruct_parser(subparsers):
     read_member:        Reads the Id of a member from the Pool
     delete_member:      Deletes a member from the Pool
     list_members:       Lists all members in the Pool
+    add_vip:            Add a virtual server (VIP) to the Load Balancer
+    read_vip:           Reads the Id of a VIP on the Load Balancer
+    delete_vip:         Deletes a VIP from the Load Balancer
+    list_vips           Lists all VIPs on the Load Balancer
+    read_monitor:       Reads the Id of a monitor on the Load Balancer
+    list_monitors:      Lists all monitors on the Load Balancer
     """)
 
     parser.add_argument("-n",
@@ -586,9 +800,9 @@ def contruct_parser(subparsers):
     parser.add_argument("-pfi",
                         "--profile_id",
                         help="Application Profile Id")
-    parser.add_argument("-pft",
-                        "--profile_type",
-                        help="Application Profile Type (TCP,UDP,HTTP)")
+    parser.add_argument("-pr",
+                        "--protocol",
+                        help="Protocol type (TCP,UDP,HTTP), used in Applicatipn Profile and VIP configuration")
     parser.add_argument("-p",
                         "--persistence",
                         help="Application Profile Persistence Type (sourceip, msrdp, cookie)")
@@ -653,6 +867,25 @@ def contruct_parser(subparsers):
     parser.add_argument("-mic",
                         "--min_conn",
                         help="The minimum connections of a server pool members")
+    parser.add_argument("-vn",
+                        "--vip_name",
+                        help="The name of a virtual server (VIP)")
+    parser.add_argument("-vi",
+                        "--vip_id",
+                        help="The Id of a virtual server (VIP) (used when deleting a VIP)")
+    parser.add_argument("-vip",
+                        "--vip_ip",
+                        help="The IP Address of a virtual server (VIP), this address needs to be the IP of a "
+                             "vnic on the ESG")
+    parser.add_argument("-vid",
+                        "--vip_description",
+                        help="A free text description for the virtual server (VIP)")
+    parser.add_argument("-cl",
+                        "--conn_limit",
+                        help="Connection Limit on the virtual server (VIP)")
+    parser.add_argument("-cr",
+                        "--conn_rate_limit",
+                        help="Connection rate Limit on the virtual server (VIP)")
 
     parser.set_defaults(func=_lb_main)
 
@@ -689,9 +922,15 @@ def _lb_main(args):
             'read_member': _read_member,
             'delete_member': _delete_member,
             'list_members': _list_members,
+            'add_vip': _add_vip,
+            'read_vip': _read_vip,
+            'delete_vip': _delete_vip,
+            'list_vips': _list_vips,
+            'read_monitor': _read_monitor,
+            'list_monitors': _list_monitors
             }
         command_selector[args.command](client_session, esg_name=args.esg_name, profile_name=args.profile_name,
-                                       profile_id=args.profile_id, profile_type=args.profile_type,
+                                       profile_id=args.profile_id, protocol=args.protocol,
                                        persistence=args.persistence, expire=args.expire, cookie_name=args.cookie_name,
                                        cookie_mode=args.cookie_mode, xforwardedfor=args.xforwardedfor,
                                        http_redir_url=args.http_redir_url, pool_name=args.pool_name,
@@ -700,7 +939,9 @@ def _lb_main(args):
                                        member_name=args.member_name, port=args.port, monitor_port=args.monitor_port,
                                        monitor=args.monitor, weight=args.weight, max_conn=args.max_conn,
                                        min_conn=args.min_conn, pool_id=args.pool_id, member_id=args.member_id,
-                                       member=args.member, verbose=args.verbose)
+                                       member=args.member, vip_name=args.vip_name, vip_ip=args.vip_ip,
+                                       conn_limit=args.conn_limit, conn_rate_limit=args.conn_rate_limit,
+                                       vip_description=args.vip_description, vip_id=args.vip_id, verbose=args.verbose)
     except KeyError as e:
         print('Unknown command: {}'.format(e))
 
