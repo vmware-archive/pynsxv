@@ -19,6 +19,7 @@ pynsxv/library/nsx_dlr.py
 pynsxv/library/nsx_dlr.pyc
 pynsxv/library/nsx_esg.py
 pynsxv/library/nsx_esg.pyc
+pynsxv/library/nsx_lb.py
 pynsxv/library/nsx_logical_switch.py
 pynsxv/library/nsx_logical_switch.pyc
 pynsxv/library/nsx_usage.py
