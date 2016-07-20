@@ -366,28 +366,176 @@ def _list_pools(client_session, **kwargs):
                                            "Monitor Id", "Is transparent"], tablefmt="psql")
 
 
+def add_member(client_session, esg_name, pool_name, member_name, member_ip, port=None, monitor_port=None, weight=None,
+               max_conn=None, min_conn=None):
+    esg_id, esg_params = get_edge(client_session, esg_name)
+    if not esg_id:
+        return None
+
+    pool_id, pool_details = read_pool(client_session, esg_name, pool_name)
+
+    if pool_details:
+        if 'member' in pool_details:
+            members = client_session.normalize_list_return(pool_details['member'])
+        else:
+            pool_details['member'] = []
+            members = []
+    else:
+        pool_details['member'] = []
+        members = []
+
+    new_member = {'name': member_name, 'ipAddress': member_ip, 'port': port, 'monitorPort': monitor_port,
+                  'weight': weight, 'maxConn': max_conn, 'minConn': min_conn}
+
+    members.append(new_member)
+    pool_details['member'] = members
+
+    result = client_session.update('pool', uri_parameters={'edgeId': esg_id, 'poolID': pool_id},
+                                   request_body_dict={'pool': pool_details})
+    if result['status'] != 204:
+        return False
+    else:
+        return True
+
+
 def _add_member(client_session, **kwargs):
-    needed_params = ['esg_name']
+    needed_params = ['esg_name', 'member_name', 'member', 'pool_name']
     if not check_for_parameters(needed_params, kwargs):
         return None
+
+    result = add_member(client_session, kwargs['esg_name'], kwargs['pool_name'], kwargs['member_name'],
+                        kwargs['member'], kwargs['port'], kwargs['monitor_port'], kwargs['weight'], kwargs['max_conn'],
+                        kwargs['min_conn'])
+
+    if result and kwargs['verbose']:
+        print result
+    elif result:
+        print 'LB Member configuration on esg {} succeeded'.format(kwargs['esg_name'])
+    else:
+        print 'LB Member configuration  on esg {} failed'.format(kwargs['esg_name'])
+
+
+def read_member(client_session, esg_name, pool_name, member_name):
+    esg_id, esg_params = get_edge(client_session, esg_name)
+    if not esg_id:
+        return None, None
+
+    pool_id, pool_details = read_pool(client_session, esg_name, pool_name)
+    if not pool_id:
+        return None, None
+
+    if pool_details:
+        if 'member' in pool_details:
+            members = client_session.normalize_list_return(pool_details['member'])
+        else:
+            members = []
+    else:
+        members = []
+    try:
+        member = [member for member in members if member['name'] == member_name][0]
+    except IndexError:
+        return None, None
+
+    return member['memberId'], member
 
 
 def _read_member(client_session, **kwargs):
-    needed_params = ['esg_name']
+    needed_params = ['esg_name', 'pool_name', 'member_name']
     if not check_for_parameters(needed_params, kwargs):
         return None
+
+    member_id, member_details = read_member(client_session, kwargs['esg_name'], kwargs['pool_name'],
+                                            kwargs['member_name'])
+
+    if kwargs['verbose']:
+        print member_id
+    else:
+        print 'Member {} in Pool {} on esg {} has the Id: {}'.format(kwargs['member_name'], kwargs['pool_name'],
+                                                                     kwargs['esg_name'], member_id)
+
+
+def delete_member(client_session, esg_name, pool_name, member_id):
+    esg_id, esg_params = get_edge(client_session, esg_name)
+    if not esg_id:
+        return None
+
+    pool_id, pool_details = read_pool(client_session, esg_name, pool_name)
+    if not pool_id:
+        return None
+
+    if pool_details:
+        if 'member' in pool_details:
+            members = client_session.normalize_list_return(pool_details['member'])
+        else:
+            pool_details['member'] = []
+            members = []
+    else:
+        pool_details['member'] = []
+        members = []
+
+    members_new = [member for member in members if member['memberId'] != member_id]
+
+    pool_details['member'] = members_new
+
+    result = client_session.update('pool', uri_parameters={'edgeId': esg_id, 'poolID': pool_id},
+                                   request_body_dict={'pool': pool_details})
+    if result['status'] != 204:
+        return False
+    else:
+        return True
 
 
 def _delete_member(client_session, **kwargs):
-    needed_params = ['esg_name']
+    needed_params = ['esg_name', 'pool_name', 'member_id']
     if not check_for_parameters(needed_params, kwargs):
         return None
+
+    result = delete_member(client_session, kwargs['esg_name'], kwargs['pool_name'], kwargs['member_id'])
+
+    if result:
+        print 'Deleting Member {} in Pool {} on esg {} succeeded'.format(kwargs['member_id'], kwargs['pool_name'],
+                                                                         kwargs['esg_name'])
+    else:
+        print 'Deleting Member {} in Pool {} on esg {} failed'.format(kwargs['pool_id'], kwargs['pool_name'],
+                                                                      kwargs['esg_name'])
+
+
+def list_members(client_session, esg_name, pool_name):
+    esg_id, esg_params = get_edge(client_session, esg_name)
+    if not esg_id:
+        return None
+
+    pool_id, pool_details = read_pool(client_session, esg_name, pool_name)
+
+    if pool_details:
+        if 'member' in pool_details:
+            members = client_session.normalize_list_return(pool_details['member'])
+        else:
+            members = []
+    else:
+        members = []
+
+    member_lst = [(member.get('memberId'), member.get('name'), member.get('ipAddress'), member.get('port'),
+                   member.get('monitorPort'), member.get('weight'), member.get('maxConn'), member.get('minConn'),
+                   member.get('condition')) for member in members]
+
+    member_lst_verbose = [member for member in members]
+
+    return member_lst, member_lst_verbose
 
 
 def _list_members(client_session, **kwargs):
-    needed_params = ['esg_name']
+    needed_params = ['esg_name', 'pool_name']
     if not check_for_parameters(needed_params, kwargs):
         return None
+
+    member_list, member_list_verbose = list_members(client_session, kwargs['esg_name'], kwargs['pool_name'])
+
+    if kwargs['verbose']:
+        print json.dumps(member_list_verbose)
+    else:
+        print tabulate(member_list, headers=["Member Id", "Member Name", "Member", "Port", "Monitor Port", "Weight",
+                                             "Max Conn", "Min Conn", "Condition"], tablefmt="psql")
 
 
 def read_monitor(client_session, esg_name, monitor_name):
@@ -552,7 +700,7 @@ def _lb_main(args):
                                        member_name=args.member_name, port=args.port, monitor_port=args.monitor_port,
                                        monitor=args.monitor, weight=args.weight, max_conn=args.max_conn,
                                        min_conn=args.min_conn, pool_id=args.pool_id, member_id=args.member_id,
-                                       verbose=args.verbose)
+                                       member=args.member, verbose=args.verbose)
     except KeyError as e:
         print('Unknown command: {}'.format(e))
 
@@ -563,6 +711,7 @@ def main():
     contruct_parser(subparsers)
     args = main_parser.parse_args()
     args.func(args)
+
 
 if __name__ == "__main__":
     main()
