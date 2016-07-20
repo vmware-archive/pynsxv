@@ -104,17 +104,16 @@ def _add_app_profile(client_session, **kwargs):
 
 
 def read_app_profile(client_session, esg_name, prof_name):
-    #TODO: Finds an App profile by name and returns its ID
     esg_id, esg_params = get_edge(client_session, esg_name)
     if not esg_id:
-        return None
+        return None, None
 
     prof_list, prof_list_verbose = list_app_profiles(client_session, esg_name)
 
     try:
         profile_id = [prof[0] for prof in prof_list if prof[1] == prof_name][0]
     except IndexError:
-        return None
+        return None, None
 
     result = client_session.read('applicationProfile', uri_parameters={'edgeId': esg_id,
                                                                        'appProfileID': profile_id})
@@ -122,6 +121,7 @@ def read_app_profile(client_session, esg_name, prof_name):
     profile_details = result['body']['applicationProfile']
 
     return profile_id, profile_details
+
 
 def _read_app_profile(client_session, **kwargs):
     needed_params = ['esg_name', 'profile_name']
@@ -136,8 +136,8 @@ def _read_app_profile(client_session, **kwargs):
         print 'LB App Profile {} on ESG {} has the Id: {}'.format(kwargs['profile_name'],
                                                                   kwargs['esg_name'], profile_id)
 
+
 def delete_app_profile(client_session, esg_name, prof_id):
-    #TODO: Finds an App profile by name and deletes it
     esg_id, esg_params = get_edge(client_session, esg_name)
     if not esg_id:
         return None
@@ -165,7 +165,6 @@ def _delete_app_profile(client_session, **kwargs):
 
 
 def list_app_profiles(client_session, esg_name):
-    #TODO: Lists all app profiles and returns a list
     esg_id, esg_params = get_edge(client_session, esg_name)
     if not esg_id:
         return None
@@ -225,6 +224,188 @@ def _list_app_profiles(client_session, **kwargs):
                                            "HTTP redir. URL"], tablefmt="psql")
 
 
+def add_pool(client_session, esg_name, pool_name, pool_desc=None, algorithm=None, algorithm_params=None, monitor=None,
+             transparent=None):
+    esg_id, esg_params = get_edge(client_session, esg_name)
+    if not esg_id:
+        return None
+
+    if not algorithm:
+        algorithm = 'round-robin'
+    if not transparent:
+        transparent = 'false'
+
+    if monitor:
+        monitor_id, monitor_verbose = read_monitor(client_session, esg_name, monitor)
+    else:
+        monitor_id = None
+
+    pool = {'pool': {'name': pool_name, 'description':pool_desc, 'transparent': transparent,
+                     'algorithm': algorithm, 'monitorId': monitor_id}}
+
+    if algorithm_params:
+        pool['pool']['algorithmParameters'] = algorithm
+
+    result = client_session.create('pools', uri_parameters={'edgeId': esg_id}, request_body_dict=pool)
+
+    if result['status'] != 201:
+        return None
+    else:
+        return result['objectId']
+
+
+def _add_pool(client_session, **kwargs):
+    needed_params = ['esg_name', 'pool_name']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+    result = add_pool(client_session, kwargs['esg_name'], kwargs['pool_name'], kwargs['pool_description'],
+                      kwargs['algorithm'], kwargs['algorithm_params'], kwargs['monitor'], kwargs['transparent'])
+
+    if result and kwargs['verbose']:
+        print result
+    elif result:
+        print 'LB Server Pool configuration on esg {} succeeded, the Pool Id is {}'.format(kwargs['esg_name'], result)
+    else:
+        print 'LB Server Pool configuration on esg {} failed'.format(kwargs['esg_name'])
+
+
+def read_pool(client_session, esg_name, pool_name):
+    esg_id, esg_params = get_edge(client_session, esg_name)
+    if not esg_id:
+        return None, None
+
+    pool_list, pool_list_verbose = list_pools(client_session, esg_name)
+
+    try:
+        pool_id = [pool[0] for pool in pool_list if pool[1] == pool_name][0]
+    except IndexError:
+        return None, None
+
+    result = client_session.read('pool', uri_parameters={'edgeId': esg_id, 'poolID': pool_id})
+
+    pool_id = result['body']['pool']['poolId']
+    pool_details = result['body']['pool']
+
+    return pool_id, pool_details
+
+
+def _read_pool(client_session, **kwargs):
+    needed_params = ['esg_name', 'pool_name']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+    pool_id, pool_details = read_pool(client_session, kwargs['esg_name'], kwargs['pool_name'])
+
+    if kwargs['verbose']:
+        print pool_id
+    else:
+        print 'LB Server Pool {} on ESG {} has the Id: {}'.format(kwargs['profile_name'],
+                                                                  kwargs['esg_name'], pool_id)
+
+
+def delete_pool(client_session, esg_name, pool_id):
+    esg_id, esg_params = get_edge(client_session, esg_name)
+    if not esg_id:
+        return None
+
+    result = client_session.delete('pool', uri_parameters={'edgeId': esg_id, 'poolID': pool_id})
+
+    if result['status'] == 204:
+        return True
+    else:
+        return None
+
+
+def _delete_pool(client_session, **kwargs):
+    needed_params = ['esg_name', 'pool_id']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+    result = delete_pool(client_session, kwargs['esg_name'], kwargs['pool_id'])
+
+    if result:
+        print 'Deleting LB Server Pool {} on esg {} succeeded'.format(kwargs['pool_id'], kwargs['esg_name'])
+    else:
+        print 'Deleting LB Server Pool {} on esg {} failed'.format(kwargs['pool_id'], kwargs['esg_name'])
+
+
+def list_pools(client_session, esg_name):
+    esg_id, esg_params = get_edge(client_session, esg_name)
+    if not esg_id:
+        return None
+
+    pools_api = client_session.read('pools', uri_parameters={'edgeId': esg_id})['body']
+    if pools_api['loadBalancer']:
+        if 'pool' in pools_api['loadBalancer']:
+            pools = client_session.normalize_list_return(pools_api['loadBalancer']['pool'])
+        else:
+            pools = []
+    else:
+        pools = []
+
+    pool_lst = [(pool.get('poolId'), pool.get('name'), pool.get('description'), pool.get('algorithm'),
+                 pool.get('algorithmParameters'), pool.get('monitorId'), pool.get('transparent')) for pool in pools]
+
+    pool_lst_verbose = [pool for pool in pools]
+
+    return pool_lst, pool_lst_verbose
+
+
+def _list_pools(client_session, **kwargs):
+    needed_params = ['esg_name']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+    pool_list, pool_list_verbose = list_pools(client_session, kwargs['esg_name'])
+
+    if kwargs['verbose']:
+        print json.dumps(pool_list_verbose)
+    else:
+        print tabulate(pool_list, headers=["Pool Id", "Pool Name", "Description", "Algorithm", "Alg. Parameter",
+                                           "Monitor Id", "Is transparent"], tablefmt="psql")
+
+
+def _add_member(client_session, **kwargs):
+    needed_params = ['esg_name']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+
+def _read_member(client_session, **kwargs):
+    needed_params = ['esg_name']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+
+def _delete_member(client_session, **kwargs):
+    needed_params = ['esg_name']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+
+def _list_members(client_session, **kwargs):
+    needed_params = ['esg_name']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+
+def read_monitor(client_session, esg_name, monitor_name):
+    esg_id, esg_params = get_edge(client_session, esg_name)
+    if not esg_id:
+        return None
+
+    #TODO: Change the hard-coded monitor to retrieve the monitor Id by name
+
+    return 'monitor-1', None
+
+
+def list_monitors(client_session, esg_name,):
+    esg_id, esg_params = get_edge(client_session, esg_name)
+    if not esg_id:
+        return None
+
+
 def contruct_parser(subparsers):
     parser = subparsers.add_parser('lb', description="Functions for Load Balancer configurations "
                                                      "on Edge Service Gateways",
@@ -236,18 +417,28 @@ def contruct_parser(subparsers):
     delete_profile:     Deletes an application profile of the Load Balancer
     read_profile:       Returns the application profile Id from the Load Balancer
     list_profiles:      Lists all application profiles configured on the Load Balancer
+    add_pool:           Add a server pool on the Load Balancer
+    delete_pool:        Deletes a server pool from the Load Balancer
+    read_pool:          Read the Pool Id from the Load Balancer
+    status_pool:        Displays the Status of the Pool specified
+    status_member:      Displays the Status of the Pool Members
+    list_pools:         Lists all server pools present on the load balancer
+    add_member:         Adds a member to the specified Pool, members can be IP Addresses or VC Objects
+    read_member:        Reads the Id of a member from the Pool
+    delete_member:      Deletes a member from the Pool
+    list_members:       Lists all members in the Pool
     """)
 
     parser.add_argument("-n",
                         "--esg_name",
                         help="ESG name")
-    parser.add_argument("-pn",
+    parser.add_argument("-pfn",
                         "--profile_name",
                         help="Application Profile Name")
-    parser.add_argument("-pi",
+    parser.add_argument("-pfi",
                         "--profile_id",
                         help="Application Profile Id")
-    parser.add_argument("-pt",
+    parser.add_argument("-pft",
                         "--profile_type",
                         help="Application Profile Type (TCP,UDP,HTTP)")
     parser.add_argument("-p",
@@ -268,6 +459,52 @@ def contruct_parser(subparsers):
     parser.add_argument("-rd",
                         "--http_redir_url",
                         help="Application Profile HTTP redirect URL for HTTP Types")
+    parser.add_argument("-pon",
+                        "--pool_name",
+                        help="The name of an Server Pool")
+    parser.add_argument("-poi",
+                        "--pool_id",
+                        help="The Id of an Server Pool (used when deleting)")
+    parser.add_argument("-pod",
+                        "--pool_description",
+                        help="The description of an Server Pool")
+    parser.add_argument("-al",
+                        "--algorithm",
+                        help="The load balancing algorithm for an Server Pool (round-robin, ip-hash, leastconn, uri, "
+                             "httpheader, url)")
+    parser.add_argument("-alp",
+                        "--algorithm_params",
+                        help="Additional parameters for the server pool algorithm")
+    parser.add_argument("-mt",
+                        "--monitor",
+                        help="The name of the monitor used for the server pool")
+    parser.add_argument("-tp",
+                        "--transparent",
+                        help="change the mode of the server pool to transparent ('true'/'false')")
+    parser.add_argument("-mn",
+                        "--member_name",
+                        help="The name of a server pool member")
+    parser.add_argument("-mi",
+                        "--member_id",
+                        help="The Id of a server pool member (used when deleting member from Pool)")
+    parser.add_argument("-m",
+                        "--member",
+                        help="The ip address of a server pool member")
+    parser.add_argument("-po",
+                        "--port",
+                        help="UDP/TCP Port used in server pool members and VIPs")
+    parser.add_argument("-mop",
+                        "--monitor_port",
+                        help="The UDP/TCP Port used for monitoring in server pool members")
+    parser.add_argument("-wt",
+                        "--weight",
+                        help="The weight of a server pool members")
+    parser.add_argument("-mxc",
+                        "--max_conn",
+                        help="The maximum connections of a server pool members")
+    parser.add_argument("-mic",
+                        "--min_conn",
+                        help="The minimum connections of a server pool members")
 
     parser.set_defaults(func=_lb_main)
 
@@ -296,12 +533,26 @@ def _lb_main(args):
             'delete_profile': _delete_app_profile,
             'read_profile': _read_app_profile,
             'list_profiles': _list_app_profiles,
+            'add_pool': _add_pool,
+            'read_pool': _read_pool,
+            'delete_pool': _delete_pool,
+            'list_pools': _list_pools,
+            'add_member': _add_member,
+            'read_member': _read_member,
+            'delete_member': _delete_member,
+            'list_members': _list_members,
             }
         command_selector[args.command](client_session, esg_name=args.esg_name, profile_name=args.profile_name,
                                        profile_id=args.profile_id, profile_type=args.profile_type,
                                        persistence=args.persistence, expire=args.expire, cookie_name=args.cookie_name,
                                        cookie_mode=args.cookie_mode, xforwardedfor=args.xforwardedfor,
-                                       http_redir_url=args.http_redir_url, verbose=args.verbose)
+                                       http_redir_url=args.http_redir_url, pool_name=args.pool_name,
+                                       pool_description=args.pool_description, algorithm=args.algorithm,
+                                       algorithm_params=args.algorithm_params, transparent=args.transparent,
+                                       member_name=args.member_name, port=args.port, monitor_port=args.monitor_port,
+                                       monitor=args.monitor, weight=args.weight, max_conn=args.max_conn,
+                                       min_conn=args.min_conn, pool_id=args.pool_id, member_id=args.member_id,
+                                       verbose=args.verbose)
     except KeyError as e:
         print('Unknown command: {}'.format(e))
 
