@@ -762,6 +762,77 @@ def _list_monitors(client_session, **kwargs):
                        tablefmt="psql")
 
 
+def load_balancer(client_session, esg_name, enabled=None, syslog_enabled=None, syslog_level=None):
+    esg_id, esg_params = get_edge(client_session, esg_name)
+    if not esg_id:
+        return None
+
+    change_needed = False
+
+    current_lb_config = client_session.read('loadBalancer', uri_parameters={'edgeId': esg_id})['body']
+    new_lb_config = current_lb_config
+
+    if enabled:
+        if current_lb_config['loadBalancer']['enabled'] == 'false':
+            new_lb_config['loadBalancer']['enabled'] = 'true'
+            change_needed = True
+    else:
+        if current_lb_config['loadBalancer']['enabled'] == 'true':
+            new_lb_config['loadBalancer']['enabled'] = 'false'
+            change_needed = True
+
+    if syslog_enabled == 'true':
+        if current_lb_config['loadBalancer']['logging']['enable'] == 'false':
+            new_lb_config['loadBalancer']['logging']['enable'] = 'true'
+            change_needed = True
+    elif syslog_enabled == 'false':
+        if current_lb_config['loadBalancer']['logging']['enable'] == 'true':
+            new_lb_config['loadBalancer']['logging']['enable'] = 'false'
+            change_needed = True
+
+    if syslog_level:
+        if current_lb_config['loadBalancer']['logging']['logLevel'] != syslog_level:
+            new_lb_config['loadBalancer']['logging']['logLevel'] = syslog_level
+            change_needed = True
+
+    if not change_needed:
+        return True
+    else:
+        result = client_session.update('loadBalancer', uri_parameters={'edgeId': esg_id},
+                                       request_body_dict=new_lb_config)
+        if result['status'] == 204:
+            return True
+        else:
+            return False
+
+
+def _enable_lb(client_session, **kwargs):
+    needed_params = ['esg_name']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+    result = load_balancer(client_session, kwargs['esg_name'], enabled=True, syslog_enabled=kwargs['logging'],
+                           syslog_level=kwargs['log_level'])
+
+    if not result:
+        print 'Enabling Load Balancing on Edge Services Gateway {} failed'.format(kwargs['esg_name'])
+    else:
+        print 'Enabling Load Balancing on Edge Services Gateway {} succeeded'.format(kwargs['esg_name'])
+
+
+def _disable_lb(client_session, **kwargs):
+    needed_params = ['esg_name']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+    result = load_balancer(client_session, kwargs['esg_name'], enabled=False)
+
+    if not result:
+        print 'Disabling Load Balancing on Edge Services Gateway {} failed'.format(kwargs['esg_name'])
+    else:
+        print 'Disabling Load Balancing on Edge Services Gateway {} succeeded'.format(kwargs['esg_name'])
+
+
 def contruct_parser(subparsers):
     parser = subparsers.add_parser('lb', description="Functions for Load Balancer configurations "
                                                      "on Edge Service Gateways",
@@ -789,6 +860,8 @@ def contruct_parser(subparsers):
     list_vips           Lists all VIPs on the Load Balancer
     read_monitor:       Reads the Id of a monitor on the Load Balancer
     list_monitors:      Lists all monitors on the Load Balancer
+    enable_lb:          Enables the Load Balancing Service on the ESG
+    disable_lb:         Disables the Load Balancing Service on the ESG
     """)
 
     parser.add_argument("-n",
@@ -886,6 +959,12 @@ def contruct_parser(subparsers):
     parser.add_argument("-cr",
                         "--conn_rate_limit",
                         help="Connection rate Limit on the virtual server (VIP)")
+    parser.add_argument("-lg",
+                        "--logging",
+                        help="Logging status for the Load Balancer (true/false)")
+    parser.add_argument("-ll",
+                        "--log_level",
+                        help="Log level for LB")
 
     parser.set_defaults(func=_lb_main)
 
@@ -927,7 +1006,9 @@ def _lb_main(args):
             'delete_vip': _delete_vip,
             'list_vips': _list_vips,
             'read_monitor': _read_monitor,
-            'list_monitors': _list_monitors
+            'list_monitors': _list_monitors,
+            'enable_lb': _enable_lb,
+            'disable_lb': _disable_lb
             }
         command_selector[args.command](client_session, esg_name=args.esg_name, profile_name=args.profile_name,
                                        profile_id=args.profile_id, protocol=args.protocol,
@@ -941,7 +1022,8 @@ def _lb_main(args):
                                        min_conn=args.min_conn, pool_id=args.pool_id, member_id=args.member_id,
                                        member=args.member, vip_name=args.vip_name, vip_ip=args.vip_ip,
                                        conn_limit=args.conn_limit, conn_rate_limit=args.conn_rate_limit,
-                                       vip_description=args.vip_description, vip_id=args.vip_id, verbose=args.verbose)
+                                       vip_description=args.vip_description, vip_id=args.vip_id, logging=args.logging,
+                                       log_level=args.log_level, verbose=args.verbose)
     except KeyError as e:
         print('Unknown command: {}'.format(e))
 
