@@ -29,7 +29,7 @@ setup(
     'Topic :: Utilities',
     'License :: OSI Approved :: MIT License',
     'Programming Language :: Python :: 2.7'],
-    install_requires=['nsxramlclient>=2.0', 'pyvmomi', 'tabulate'],
+    install_requires=['nsxramlclient>=2.0.1', 'pyvmomi', 'tabulate'],
     entry_points={
         'console_scripts': ['pynsxv = pynsxv.cli:main']
     }

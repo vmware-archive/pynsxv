@@ -191,7 +191,7 @@ def _esg_list_print(client_session, **kwargs):
 
 def esg_cfg_interface(client_session, esg_name, ifindex, ipaddr=None, netmask=None, prefixlen=None, name=None, mtu=None,
                       is_connected=None, portgroup_id=None, vnic_type=None, enable_send_redirects=None,
-                      enable_proxy_arp=None):
+                      enable_proxy_arp=None, secondary_ips=None):
     """
     This function configures vnic interfaces on ESGs
     :param client_session: An instance of an NsxClient Session
@@ -207,6 +207,7 @@ def esg_cfg_interface(client_session, esg_name, ifindex, ipaddr=None, netmask=No
     :param vnic_type: (Optional) The vnic type (uplink/internal)
     :param enable_send_redirects: (Optional) Whether the interface will send icmp redirects (true/false)
     :param enable_proxy_arp: (Optional) Whether the interface will do proxy arp (true/false)
+    :param secondary_ips: (Optional) A list of additional secondary IP addresses in the primary IP's Subnet
     :return: Returns True on successful configuration of the Interface
     """
     esg_id, esg_params = get_edge(client_session, esg_name)
@@ -233,11 +234,15 @@ def esg_cfg_interface(client_session, esg_name, ifindex, ipaddr=None, netmask=No
         vnic_config['vnic']['isConnected'] = is_connected
     if ipaddr and (netmask or prefixlen):
         address_group = {}
+        sec_ips = []
         if netmask:
             address_group['subnetMask'] = netmask
         if prefixlen:
             address_group['subnetPrefixLength'] = str(prefixlen)
+        if secondary_ips:
+            sec_ips = secondary_ips
         address_group['primaryAddress'] = ipaddr
+        address_group['secondaryAddresses'] = {'ipAddress': sec_ips}
         vnic_config['vnic']['addressGroups'] = {'addressGroup': address_group}
 
     cfg_result = client_session.update('vnic', uri_parameters={'index': ifindex, 'edgeId': esg_id},
@@ -281,10 +286,14 @@ def _esg_cfg_interface(client_session, vccontent, **kwargs):
         netmask = None
         prefixlen = None
 
+    secondary_ips = None
+    if kwargs['vnic_secondary_ips']:
+        secondary_ips = kwargs['vnic_secondary_ips'].split(',')
+
     result = esg_cfg_interface(client_session, kwargs['esg_name'], kwargs['vnic_index'], name=kwargs['vnic_name'],
                                vnic_type=kwargs['vnic_type'], portgroup_id=portgroup, is_connected=kwargs['vnic_state'],
                                ipaddr=kwargs['vnic_ip'], netmask=netmask,
-                               prefixlen=prefixlen)
+                               prefixlen=prefixlen, secondary_ips=secondary_ips)
     if result:
         print 'Edge Services Router {} vnic{} has been configured'.format(kwargs['esg_name'], kwargs['vnic_index'])
     else:
@@ -344,8 +353,9 @@ def esg_list_interfaces(client_session, esg_name):
              item 0 containing the vnic Name as string,
              item 1 containing the vnic index as string,
              item 2 containing the ip as string,
-             item 3 containing the netmask as string,
-             item 4 containing the 'connected-to' portgroup as string,
+             item 3 containing the secondary ip as list of strings
+             item 4 containing the netmask as string,
+             item 5 containing the 'connected-to' portgroup as string,
              The second item contains a list of dictionaries containing all ESG vnic details
     """
     esg_id, esg_params = get_edge(client_session, esg_name)
@@ -366,8 +376,12 @@ def esg_list_interfaces(client_session, esg_name):
             pgname = interface['portgroupName']
         except KeyError:
             pgname = ''
+        try:
+            secondary_ips = interface['addressGroups']['addressGroup']['secondaryAddresses']['ipAddress']
+        except:
+            secondary_ips = None
 
-        esg_int_list.append((interface['name'], interface['index'], ip, snmask, pgname))
+        esg_int_list.append((interface['name'], interface['index'], ip, snmask, pgname, secondary_ips))
         esg_int_list_verbose.append(interface)
     return esg_int_list, esg_int_list_verbose
 
@@ -381,8 +395,8 @@ def _esg_list_interfaces(client_session, **kwargs):
     if esg_int_list_verbose and kwargs['verbose']:
         print json.dumps(esg_int_list_verbose)
     elif esg_int_list:
-        print tabulate(esg_int_list, headers=["Vnic name", "Vnic ID", "Vnic IP", "Vnic subnet", "Connected To"],
-                       tablefmt="psql")
+        print tabulate(esg_int_list, headers=["Vnic name", "Vnic ID", "Vnic IP", "Vnic subnet", "Connected To",
+                                              "Secondary IPs"], tablefmt="psql")
     else:
         print 'Failed to get interface list of Edge {}'.format(kwargs['esg_name'])
 
@@ -769,6 +783,10 @@ def contruct_parser(subparsers):
     parser.add_argument("-ip",
                         "--vnic_ip",
                         help="vnic IP Address")
+    parser.add_argument("-sip",
+                        "--vnic_secondary_ips",
+                        help="vnic secondary IP Addresses (comma separated list of IPs, "
+                             "e.g. '192.168.178.10,192.168.178.10')")
     parser.add_argument("-m",
                         "--vnic_mask",
                         help="vnic subnet mask or size (e.g. 255.255.255.0 or 24)")
@@ -855,7 +873,8 @@ def _esg_main(args):
                                        vnic_index=args.vnic_index, vnic_type=args.vnic_type, vnic_name=args.vnic_name,
                                        vnic_state=args.vnic_state, vnic_ip=args.vnic_ip, vnic_mask=args.vnic_mask,
                                        route_net=args.route_net, fw_default=args.fw_default,
-                                       esg_remote_access=args.esg_remote_access, verbose=args.verbose)
+                                       esg_remote_access=args.esg_remote_access,
+                                       vnic_secondary_ips=args.vnic_secondary_ips, verbose=args.verbose)
     except KeyError as e:
         print('Unknown command: {}'.format(e))
 
