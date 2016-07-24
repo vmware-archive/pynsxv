@@ -37,6 +37,33 @@ __author__ = 'yfauser'
 
 def add_app_profile(client_session, esg_name, prof_name, template, persistence=None, expire_time=None, cookie_name=None,
                     cookie_mode=None, xforwardedfor=None, http_redir_url=None):
+    """
+    This function adds an Load Balancer Application profile to an ESG
+
+    :type client_session: nsxramlclient.client.NsxClient
+    :param client_session: A nsxramlclient session Object
+    :type esg_name: str
+    :param esg_name: The display name of a Edge Service Gateway used for Load Balancing
+    :type prof_name: str
+    :param prof_name: The name for the to be created Load Balancer Application profile
+    :type template: str
+    :param template: The protocol template used for this App Profile, can be (TCP, UDP, HTTP, HTTPS)
+    :type persistence: str
+    :param persistence: The persistence type, can be (none, sourceip, msrdp, cookie)
+    :type expire_time: str
+    :param expire_time: The expiration type for persistence methods that have a timeout like UDP or TCP
+    :type cookie_name: str
+    :param cookie_name: The name for the cookie when using the cookie persistence type
+    :type cookie_mode: str
+    :param cookie_mode: The mode used for the cookie persistence, can be (insert, prefix, app)
+    :type xforwardedfor: str
+    :param xforwardedfor: Is the X Forwarded For Header inserted or not ('true'/'false')
+    :type http_redir_url: str
+    :param http_redir_url: A URL for HTTP redirection, e.g. http://www.vmware.com
+    :return: Returns the Object Id of the newly created Application Profile, False on a failure, and None if the ESG was
+             not found in NSX
+    :rtype: str
+    """
     esg_id, esg_params = get_edge(client_session, esg_name)
     if not esg_id:
         return None
@@ -77,7 +104,7 @@ def add_app_profile(client_session, esg_name, prof_name, template, persistence=N
         app_prof['applicationProfile']['httpRedirect'] = {'to': http_redir_url}
 
     result = client_session.create('applicationProfiles', uri_parameters={'edgeId': esg_id},
-                                     request_body_dict=app_prof)
+                                   request_body_dict=app_prof)
     if result['status'] != 201:
         return None
     else:
@@ -104,6 +131,19 @@ def _add_app_profile(client_session, **kwargs):
 
 
 def read_app_profile(client_session, esg_name, prof_name):
+    """
+    This function read a Load Balancer Application profile on an ESG and returns its Id and details
+
+    :type client_session: nsxramlclient.client.NsxClient
+    :param client_session: A nsxramlclient session Object
+    :type esg_name: str
+    :param esg_name: The display name of a Edge Service Gateway used for Load Balancing
+    :type prof_name: str
+    :param prof_name: The name for the to be created Load Balancer Application profile
+    :return: Returns a tuple, the first item of the tuple contains the Id of the profile as a string, the second
+             item contains the profile details returned from the NSX API as a dict
+    :rtype: tuple
+    """
     esg_id, esg_params = get_edge(client_session, esg_name)
     if not esg_id:
         return None, None
@@ -138,6 +178,18 @@ def _read_app_profile(client_session, **kwargs):
 
 
 def delete_app_profile(client_session, esg_name, prof_id):
+    """
+    This function deletes an Load Balancing Application Profile on an ESG
+
+    :type client_session: nsxramlclient.client.NsxClient
+    :param client_session: A nsxramlclient session Object
+    :type esg_name: str
+    :param esg_name: The display name of a Edge Service Gateway used for Load Balancing
+    :type prof_id: str
+    :param prof_id: The Id of the Load Balancing Application Profile to be deleted
+    :return: True if the deletion was successful, None on failure
+    :rtype: bool
+    """
     esg_id, esg_params = get_edge(client_session, esg_name)
     if not esg_id:
         return None
@@ -165,6 +217,25 @@ def _delete_app_profile(client_session, **kwargs):
 
 
 def list_app_profiles(client_session, esg_name):
+    """
+    This function lists all Load Balancing Application Profiles on an ESG
+
+    :type client_session: nsxramlclient.client.NsxClient
+    :param client_session: A nsxramlclient session Object
+    :type esg_name: str
+    :param esg_name: The display name of a Edge Service Gateway used for Load Balancing
+    :return: Returns a tuple, the first item containing a list of tuples containing:
+             [0] The Id of the Profile
+             [1] The name of the Profile
+             [2] The Template used (UDP/TCP/HTTP/HTTPS)
+             [3] The expiration time for the persistence if used
+             [4] The Cookie Name if cookies are used
+             [5] The Cookie Mode if cookies are used
+             [6] The state of XForwardedFor injection ('true' or 'false')
+             [7] The HTTP Redirection URL if set for HTTP types
+            The second item contains all profile details on the system as a list of dicts
+    :rtype: tuple
+    """
     esg_id, esg_params = get_edge(client_session, esg_name)
     if not esg_id:
         return None
@@ -226,6 +297,30 @@ def _list_app_profiles(client_session, **kwargs):
 
 def add_pool(client_session, esg_name, pool_name, pool_desc=None, algorithm=None, algorithm_params=None, monitor=None,
              transparent=None):
+    """
+    This function creates a Load Balancing Server Pool on an ESG
+
+    :type client_session: nsxramlclient.client.NsxClient
+    :param client_session: A nsxramlclient session Object
+    :type esg_name: str
+    :param esg_name: The display name of a Edge Service Gateway used for Load Balancing
+    :type pool_name: str
+    :param pool_name: The name of the to be created pool
+    :type pool_desc: str
+    :param pool_desc: A free text description for the pool to be created
+    :type algorithm: str
+    :param algorithm: The load balancing algorithm for an Server Pool
+                      (round-robin, ip-hash, leastconn, uri, httpheader, url)
+    :type algorithm_params: str
+    :param algorithm_params: Additional parameters for the server pool algorithm
+    :type monitor: str
+    :param monitor: The name of the monitor used for the server pool
+    :type transparent: str
+    :param transparent: change the mode of the server pool to transparent ('true'/'false')
+    :return: Returns the Object Id of the newly created LB Server Pool, False on a failure, and None if the ESG was
+             not found in NSX
+    :rtype: str
+    """
     esg_id, esg_params = get_edge(client_session, esg_name)
     if not esg_id:
         return None
@@ -240,7 +335,7 @@ def add_pool(client_session, esg_name, pool_name, pool_desc=None, algorithm=None
     else:
         monitor_id = None
 
-    pool = {'pool': {'name': pool_name, 'description':pool_desc, 'transparent': transparent,
+    pool = {'pool': {'name': pool_name, 'description': pool_desc, 'transparent': transparent,
                      'algorithm': algorithm, 'monitorId': monitor_id}}
 
     if algorithm_params:
@@ -271,6 +366,19 @@ def _add_pool(client_session, **kwargs):
 
 
 def read_pool(client_session, esg_name, pool_name):
+    """
+    This function returns the Id and Details of a Load Balancing Server Pool on an ESG
+
+    :type client_session: nsxramlclient.client.NsxClient
+    :param client_session: A nsxramlclient session Object
+    :type esg_name: str
+    :param esg_name: The display name of a Edge Service Gateway used for Load Balancing
+    :type pool_name: str
+    :param pool_name: The name of the to be created pool
+    :return: Returns a tuple, the first item of the tuple contains the Id of the pool as a string, the second
+             item contains the pool details returned from the NSX API as a dict
+    :rtype: tuple
+    """
     esg_id, esg_params = get_edge(client_session, esg_name)
     if not esg_id:
         return None, None
@@ -305,6 +413,18 @@ def _read_pool(client_session, **kwargs):
 
 
 def delete_pool(client_session, esg_name, pool_id):
+    """
+    This function deletes a Load Balancing Server Pool on an ESG
+
+    :type client_session: nsxramlclient.client.NsxClient
+    :param client_session: A nsxramlclient session Object
+    :type esg_name: str
+    :param esg_name: The display name of a Edge Service Gateway used for Load Balancing
+    :type pool_id: str
+    :param pool_id: The pool Id of the pool that is to be deleted
+    :return: Returns True on successful deletion of the pool and None on failure or if the ESG was not found
+    :rtype: bool
+    """
     esg_id, esg_params = get_edge(client_session, esg_name)
     if not esg_id:
         return None
@@ -331,6 +451,24 @@ def _delete_pool(client_session, **kwargs):
 
 
 def list_pools(client_session, esg_name):
+    """
+    This function lists all LB Server Pools on an ESG
+
+    :type client_session: nsxramlclient.client.NsxClient
+    :param client_session: A nsxramlclient session Object
+    :type esg_name: str
+    :param esg_name: The display name of a Edge Service Gateway used for Load Balancing
+    :return: Returns a tuple, the first item containing a list of tuples containing:
+             [0] The Id of the pool
+             [1] The name of the pool
+             [2] The description attached to the pool
+             [3] The load balancing algorithm used for the pool
+             [4] Additional algorithm parameters used for the pool
+             [5] The Id of the monitor used with this pool
+             [6] Transparent operation ('true'/'false')
+            The second item contains all pool details on the system as a list of dicts
+    :rtype: tuple
+    """
     esg_id, esg_params = get_edge(client_session, esg_name)
     if not esg_id:
         return None
@@ -368,6 +506,33 @@ def _list_pools(client_session, **kwargs):
 
 def add_member(client_session, esg_name, pool_name, member_name, member_ip, port=None, monitor_port=None, weight=None,
                max_conn=None, min_conn=None):
+    """
+    This function creates a Member inside a Server Pool on an ESG
+
+    :type client_session: nsxramlclient.client.NsxClient
+    :param client_session: A nsxramlclient session Object
+    :type esg_name: str
+    :param esg_name: The display name of a Edge Service Gateway used for Load Balancing
+    :type pool_name: str
+    :param pool_name: The name of the pool where the member should be added to
+    :type member_name: str
+    :param member_name: The name of the to be added member
+    :type member_ip: str
+    :param member_ip: The IP address of the member to be added
+    :type port: str
+    :param port: The port number the member is listening to
+    :type monitor_port: str
+    :param monitor_port: The port number to monitor on the member
+    :type weight: str
+    :param weight: The weight of the member in the server pool
+    :type max_conn: str
+    :param max_conn: The maximum connections this member can hold
+    :type min_conn: str
+    :param min_conn: The minimum connections this member should hold
+    :return: Returns the Object Id of the newly created member in the Server Pool, False on a failure,
+             and None if the ESG was not found in NSX
+    :rtype: str
+    """
     esg_id, esg_params = get_edge(client_session, esg_name)
     if not esg_id:
         return None
@@ -416,6 +581,21 @@ def _add_member(client_session, **kwargs):
 
 
 def read_member(client_session, esg_name, pool_name, member_name):
+    """
+    This reads the details of a Member inside a Server Pool on an ESG
+
+    :type client_session: nsxramlclient.client.NsxClient
+    :param client_session: A nsxramlclient session Object
+    :type esg_name: str
+    :param esg_name: The display name of a Edge Service Gateway used for Load Balancing
+    :type pool_name: str
+    :param pool_name: The name of the pool where this member is present in
+    :type member_name: str
+    :param member_name: The name of searched member in the server pool
+    :return: Returns a tuple, the first item of the tuple contains the Id of the member as a string, the second
+             item contains the member details returned from the NSX API as a dict
+    :rtype: tuple
+    """
     esg_id, esg_params = get_edge(client_session, esg_name)
     if not esg_id:
         return None, None
@@ -455,6 +635,20 @@ def _read_member(client_session, **kwargs):
 
 
 def delete_member(client_session, esg_name, pool_name, member_id):
+    """
+    This function deletes a Member from a Server Pool on an ESG
+
+    :type client_session: nsxramlclient.client.NsxClient
+    :param client_session: A nsxramlclient session Object
+    :type esg_name: str
+    :param esg_name: The display name of a Edge Service Gateway used for Load Balancing
+    :type pool_name: str
+    :param pool_name: The name of the pool where this member is present in
+    :type member_id: str
+    :param member_id: The Id of the member to be deleted from the server pool
+    :return: Returns True on successful deletion of the member and None on failure or if the ESG was not found
+    :rtype: bool
+    """
     esg_id, esg_params = get_edge(client_session, esg_name)
     if not esg_id:
         return None
@@ -501,6 +695,28 @@ def _delete_member(client_session, **kwargs):
 
 
 def list_members(client_session, esg_name, pool_name):
+    """
+    This function lists all Members in a Server Pool on an ESG
+
+    :type client_session: nsxramlclient.client.NsxClient
+    :param client_session: A nsxramlclient session Object
+    :type esg_name: str
+    :param esg_name: The display name of a Edge Service Gateway used for Load Balancing
+    :type pool_name: str
+    :param pool_name: The name of the LB Server Pool
+    :return: Returns a tuple, the first item containing a list of tuples containing:
+             [0] The Id of the Member
+             [1] The name of the Member
+             [2] The IP Address of the member
+             [3] The port the member listens on
+             [4] The monitor of the member
+             [5] The weight of the member
+             [6] The maximum connections allowed for this member
+             [7] The minimum connection for this member
+             [8] The state of the member ('enabled'/'disabled')
+            The second item contains all member details on the system as a list of dicts
+    :rtype: tuple
+    """
     esg_id, esg_params = get_edge(client_session, esg_name)
     if not esg_id:
         return None
@@ -540,6 +756,35 @@ def _list_members(client_session, **kwargs):
 
 def add_vip(client_session, esg_name, vip_name, app_profile, vip_ip, protocol, port, pool_name, vip_description=None,
             conn_limit=None, conn_rate_limit=None):
+    """
+    This function creates a Load Balancing Virtual IP / Virtual Server (VIP) on an ESG
+
+    :type client_session: nsxramlclient.client.NsxClient
+    :param client_session: A nsxramlclient session Object
+    :type esg_name: str
+    :param esg_name: The display name of a Edge Service Gateway used for Load Balancing
+    :type vip_name: str
+    :param vip_name: The name of a virtual server (VIP)
+    :type app_profile: str
+    :param app_profile: The name of the LB App Profile to be used for this VIP
+    :type vip_ip: str
+    :param vip_ip: The IP Address of a virtual server (VIP), this address needs to be the IP of a vnic on the ESG
+    :type protocol: str
+    :param protocol: The protocol used for this VIP (UDP, TCP, HTTP, HTTPS)
+    :type port: str
+    :param port: The port this VIP listens to
+    :type pool_name: str
+    :param pool_name: The name of the pool to be attached to this VIP
+    :type vip_description: str
+    :param vip_description: A free text description for the virtual server (VIP)
+    :type conn_limit: str
+    :param conn_limit: Connection Limit on the virtual server (VIP)
+    :type conn_rate_limit: str
+    :param conn_rate_limit: Connection rate Limit on the virtual server (VIP)
+    :rtype: str
+    :return: Returns the Object Id of the newly created VIP, False on a failure, and None if the ESG was
+             not found in NSX
+    """
     esg_id, esg_params = get_edge(client_session, esg_name)
     if not esg_id:
         return None
@@ -593,6 +838,19 @@ def _add_vip(client_session, **kwargs):
 
 
 def read_vip(client_session, esg_name, vip_name):
+    """
+    This function returns the Id and Details of a VIP on an ESG
+
+    :type client_session: nsxramlclient.client.NsxClient
+    :param client_session: A nsxramlclient session Object
+    :type esg_name: str
+    :param esg_name: The display name of a Edge Service Gateway used for Load Balancing
+    :type vip_name: str
+    :param vip_name: The name of the VIP searched
+    :return: Returns a tuple, the first item of the tuple contains the Id of the VIP as a string, the second
+             item contains the VIP details returned from the NSX API as a dict
+    :rtype: tuple
+    """
     esg_id, esg_params = get_edge(client_session, esg_name)
     if not esg_id:
         return None, None
@@ -627,6 +885,18 @@ def _read_vip(client_session, **kwargs):
 
 
 def delete_vip(client_session, esg_name, vip_id):
+    """
+    This function deletes a VIP on an ESG
+
+    :type client_session: nsxramlclient.client.NsxClient
+    :param client_session: A nsxramlclient session Object
+    :type esg_name: str
+    :param esg_name: The display name of a Edge Service Gateway used for Load Balancing
+    :type vip_id: str
+    :param vip_id: The Id of the VIP to be deleted
+    :return: Returns True on successful deletion of the VIP and None on failure or if the ESG was not found
+    :rtype: bool
+    """
     esg_id, esg_params = get_edge(client_session, esg_name)
     if not esg_id:
         return None
@@ -653,6 +923,29 @@ def _delete_vip(client_session, **kwargs):
 
 
 def list_vips(client_session, esg_name):
+    """
+    This function lists all VIPs on an ESG
+
+    :type client_session: nsxramlclient.client.NsxClient
+    :param client_session: A nsxramlclient session Object
+    :type esg_name: str
+    :param esg_name: The display name of a Edge Service Gateway used for Load Balancing
+    :return: Returns a tuple, the first item containing a list of tuples containing:
+             [0] The Id of the VIP
+             [1] The name of the VIP
+             [2] The description attached to the VIP
+             [3] The enabled state of the VIP
+             [4] The IP Address the VIP is listening on (needs to be a vnic IP on the ESG)
+             [5] The protocol used by the VIP (UDP, TCP, HTTP, HTTPS)
+             [6] The port the VIP listens on
+             [7] The Id of the server pool attached to the VIP
+             [8] The LB App Profile Id attached to the VIP
+             [9] The connection limits of the VIP
+             [10] The Connection rate limit of the VIP
+             [11] The state of the acceleration for the VIP
+            The second item contains all VIP details on the system as a list of dicts
+    :rtype: tuple
+    """
     esg_id, esg_params = get_edge(client_session, esg_name)
     if not esg_id:
         return None
@@ -693,6 +986,19 @@ def _list_vips(client_session, **kwargs):
 
 
 def read_monitor(client_session, esg_name, monitor_name):
+    """
+    This function returns the Id and Details of a Monitor on an ESG
+
+    :type client_session: nsxramlclient.client.NsxClient
+    :param client_session: A nsxramlclient session Object
+    :type esg_name: str
+    :param esg_name: The display name of a Edge Service Gateway used for Load Balancing
+    :type monitor_name: str
+    :param monitor_name: The name of the monitor to get the details from
+    :return: Returns a tuple, the first item of the tuple contains the Id of the Monitor as a string, the second
+             item contains the Monitor details returned from the NSX API as a dict
+    :rtype: tuple
+    """
     esg_id, esg_params = get_edge(client_session, esg_name)
     if not esg_id:
         return None, None
@@ -726,6 +1032,23 @@ def _read_monitor(client_session, **kwargs):
 
 
 def list_monitors(client_session, esg_name):
+    """
+    This function lists all LB Monitors on an ESG
+
+    :type client_session: nsxramlclient.client.NsxClient
+    :param client_session: A nsxramlclient session Object
+    :type esg_name: str
+    :param esg_name: The display name of a Edge Service Gateway used for Load Balancing
+    :return: Returns a tuple, the first item containing a list of tuples containing:
+             [0] The Id of the Monitor
+             [1] The name of the Monitor
+             [2] The monitoring interval
+             [3] The timeout for the dead declaration
+             [4] The maximum retries for a monitor probe
+             [5] The monitor type
+            The second item contains all monitor details on the system as a list of dicts
+    :rtype: tuple
+    """
     esg_id, esg_params = get_edge(client_session, esg_name)
     if not esg_id:
         return None
@@ -763,6 +1086,22 @@ def _list_monitors(client_session, **kwargs):
 
 
 def load_balancer(client_session, esg_name, enabled=None, syslog_enabled=None, syslog_level=None):
+    """
+    This function enables / disables the load balancing functionality on the ESG and sets the syslog state and level
+
+    :type client_session: nsxramlclient.client.NsxClient
+    :param client_session: A nsxramlclient session Object
+    :type esg_name: str
+    :param esg_name: The display name of a Edge Service Gateway used for Load Balancing
+    :type enabled: bool
+    :param enabled: ('true'/'false'), the desired state of the Load Balancer
+    :type syslog_enabled: str
+    :param syslog_enabled: ('true'/'false'), the desired logging state of the Load Balancer
+    :type syslog_level: str
+    :param syslog_level: The logging level for Load Balancing on this Edge (INFO/WARNING/etc.)
+    :rtype: bool
+    :return: Return True on success of the operation
+    """
     esg_id, esg_params = get_edge(client_session, esg_name)
     if not esg_id:
         return None
@@ -875,7 +1214,7 @@ def contruct_parser(subparsers):
                         help="Application Profile Id")
     parser.add_argument("-pr",
                         "--protocol",
-                        help="Protocol type (TCP,UDP,HTTP), used in Applicatipn Profile and VIP configuration")
+                        help="Protocol type (TCP,UDP,HTTP), used in Application Profile and VIP configuration")
     parser.add_argument("-p",
                         "--persistence",
                         help="Application Profile Persistence Type (sourceip, msrdp, cookie)")
