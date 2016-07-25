@@ -36,7 +36,7 @@ __author__ = 'yfauser'
 
 
 def add_app_profile(client_session, esg_name, prof_name, template, persistence=None, expire_time=None, cookie_name=None,
-                    cookie_mode=None, xforwardedfor=None, http_redir_url=None):
+                    cookie_mode=None, xforwardedfor=None, url=None):
     """
     This function adds an Load Balancer Application profile to an ESG
 
@@ -58,8 +58,8 @@ def add_app_profile(client_session, esg_name, prof_name, template, persistence=N
     :param cookie_mode: The mode used for the cookie persistence, can be (insert, prefix, app)
     :type xforwardedfor: str
     :param xforwardedfor: Is the X Forwarded For Header inserted or not ('true'/'false')
-    :type http_redir_url: str
-    :param http_redir_url: A URL for HTTP redirection, e.g. http://www.vmware.com
+    :type url: str
+    :param url: A URL for HTTP redirection, e.g. http://www.vmware.com
     :return: Returns the Object Id of the newly created Application Profile, False on a failure, and None if the ESG was
              not found in NSX
     :rtype: str
@@ -100,8 +100,8 @@ def add_app_profile(client_session, esg_name, prof_name, template, persistence=N
     else:
         app_prof['applicationProfile']['insertXForwardedFor'] = 'false'
 
-    if http_redir_url:
-        app_prof['applicationProfile']['httpRedirect'] = {'to': http_redir_url}
+    if url:
+        app_prof['applicationProfile']['httpRedirect'] = {'to': url}
 
     result = client_session.create('applicationProfiles', uri_parameters={'edgeId': esg_id},
                                    request_body_dict=app_prof)
@@ -119,7 +119,7 @@ def _add_app_profile(client_session, **kwargs):
     result = add_app_profile(client_session, kwargs['esg_name'], kwargs['profile_name'], kwargs['protocol'],
                              persistence=kwargs['persistence'], expire_time=kwargs['expire'],
                              cookie_name=kwargs['cookie_name'], cookie_mode=kwargs['cookie_mode'],
-                             xforwardedfor=kwargs['xforwardedfor'], http_redir_url=kwargs['http_redir_url'])
+                             xforwardedfor=kwargs['xforwardedfor'], url=kwargs['url'])
 
     if result and kwargs['verbose']:
         print result
@@ -268,12 +268,12 @@ def list_app_profiles(client_session, esg_name):
 
         if 'httpRedirect' in prof:
             val = prof.get('httpRedirect')
-            http_redir_url = val.get('to')
+            url = val.get('to')
         else:
-            http_redir_url = None
+            url = None
 
         prof_lst.append((prof_id, prof_name, template, persistence, expire_time, cookie_name,
-                         cookie_mode, xforwardedfor, http_redir_url))
+                         cookie_mode, xforwardedfor, url))
 
     prof_lst_verbose = profs
 
@@ -755,7 +755,7 @@ def _list_members(client_session, **kwargs):
 
 
 def add_vip(client_session, esg_name, vip_name, app_profile, vip_ip, protocol, port, pool_name, vip_description=None,
-            conn_limit=None, conn_rate_limit=None):
+            conn_limit=None, conn_rate_limit=None, acceleration=None):
     """
     This function creates a Load Balancing Virtual IP / Virtual Server (VIP) on an ESG
 
@@ -781,6 +781,8 @@ def add_vip(client_session, esg_name, vip_name, app_profile, vip_ip, protocol, p
     :param conn_limit: Connection Limit on the virtual server (VIP)
     :type conn_rate_limit: str
     :param conn_rate_limit: Connection rate Limit on the virtual server (VIP)
+    :type acceleration: str
+    :param acceleration: Is Acceleration enabled for this VIP ('true'/'false')
     :rtype: str
     :return: Returns the Object Id of the newly created VIP, False on a failure, and None if the ESG was
              not found in NSX
@@ -797,6 +799,11 @@ def add_vip(client_session, esg_name, vip_name, app_profile, vip_ip, protocol, p
     if not prof_id:
         return None
 
+    if acceleration != 'true':
+        acceleration = 'false'
+
+    print acceleration
+
     vip = client_session.extract_resource_body_example('virtualServers', 'create')
 
     vip['virtualServer']['name'] = vip_name
@@ -810,7 +817,7 @@ def add_vip(client_session, esg_name, vip_name, app_profile, vip_ip, protocol, p
     vip['virtualServer']['applicationProfileId'] = prof_id
     vip['virtualServer']['defaultPoolId'] = pool_id
     vip['virtualServer']['enableServiceInsertion'] = 'false'
-    vip['virtualServer']['accelerationEnabled'] = 'false'
+    vip['virtualServer']['accelerationEnabled'] = acceleration
 
     result = client_session.create('virtualServers', uri_parameters={'edgeId': esg_id}, request_body_dict=vip)
 
@@ -826,8 +833,9 @@ def _add_vip(client_session, **kwargs):
         return None
 
     result = add_vip(client_session, kwargs['esg_name'], kwargs['vip_name'], kwargs['profile_name'], kwargs['vip_ip'],
-                     kwargs['protocol'], kwargs['port'], kwargs['pool_name'], kwargs['vip_description'],
-                     kwargs['conn_limit'], kwargs['conn_rate_limit'])
+                     kwargs['protocol'], kwargs['port'], kwargs['pool_name'], vip_description=kwargs['vip_description'],
+                     conn_limit=kwargs['conn_limit'], conn_rate_limit=kwargs['conn_rate_limit'],
+                     acceleration=kwargs['acceleration'])
 
     if result and kwargs['verbose']:
         print result
@@ -985,6 +993,142 @@ def _list_vips(client_session, **kwargs):
                        tablefmt="psql")
 
 
+def add_monitor(client_session, esg_name, monitor_name, protocol, timeout=None, interval=None, max_retries=None,
+                mon_expected=None, method=None, url=None, send=None, receive=None, extension=None):
+    """
+    This function creates a Load Balancing Monitor on an ESG
+
+    :type client_session: nsxramlclient.client.NsxClient
+    :param client_session: A nsxramlclient session Object
+    :type esg_name: str
+    :param esg_name: The display name of a Edge Service Gateway used for Load Balancing
+    :type monitor_name: str
+    :param monitor_name: The name of the LB Monitor
+    :type protocol: str
+    :param protocol: The protocol used for this VIP (UDP, TCP, HTTP, HTTPS, ICMP)
+    :type timeout: str
+    :param timeout: The Timeout value for a LB Monitor
+    :type interval: str
+    :param interval: The Interval value for a LB Monitor
+    :type max_retries: str
+    :param max_retries: The maximum retries for a LB Monitor
+    :type mon_expected: str
+    :param mon_expected: The expected response for a LB Monitor
+    :type method: str
+    :param method: The method used for a LB Monitor (GET, POST, OPTIONS)
+    :type url: str
+    :param url: The URL to use for HTTP and HTTPS protocols
+    :type send: str
+    :param send: The send value for a LB Monitor
+    :type receive: str
+    :param receive: The receive value for a LB Monitor
+    :type extension: str
+    :param extension: Extensions for a LB Monitor
+    :rtype: str
+    :return: Returns the Object Id of the newly created LB Monitor, False on a failure, and None if the ESG was
+             not found in NSX
+    """
+    esg_id, esg_params = get_edge(client_session, esg_name)
+    if not esg_id:
+        return None
+    if not timeout:
+        timeout = '15'
+    if not interval:
+        interval = '10'
+    if not max_retries:
+        max_retries = '3'
+    if protocol:
+        protocol = protocol.lower()
+        if (protocol == 'http' or protocol == 'https') and not method:
+            method = 'GET'
+        if (protocol == 'http' or protocol == 'https') and not url:
+            url = '/'
+
+    monitor_spec = client_session.extract_resource_body_example('lbMonitors', 'create')
+
+    monitor_spec['monitor']['name'] = monitor_name
+    monitor_spec['monitor']['type'] = protocol
+    monitor_spec['monitor']['interval'] = interval
+    monitor_spec['monitor']['timeout'] = timeout
+    monitor_spec['monitor']['maxRetries'] = max_retries
+
+    if url:
+        monitor_spec['monitor']['url'] = url
+    if method:
+        monitor_spec['monitor']['method'] = method
+    if mon_expected:
+        monitor_spec['monitor']['expected'] = mon_expected
+    if send:
+        monitor_spec['monitor']['send'] = send
+    if receive:
+        monitor_spec['monitor']['receive'] = receive
+    if extension:
+        monitor_spec['monitor']['extension'] = extension
+
+    result = client_session.create('lbMonitors', uri_parameters={'edgeId': esg_id}, request_body_dict=monitor_spec)
+
+    if result['status'] != 201:
+        return None
+    else:
+        return result['objectId']
+
+
+def _add_monitor(client_session, **kwargs):
+    needed_params = ['esg_name', 'mon_name', 'protocol']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+    result = add_monitor(client_session, kwargs['esg_name'], kwargs['mon_name'], kwargs['protocol'],
+                         timeout=kwargs['timeout'], max_retries=kwargs['max_retries'], url=kwargs['url'],
+                         mon_expected=kwargs['mon_expected'], method=kwargs['method'], send=kwargs['send'],
+                         receive=kwargs['receive'], extension=kwargs['extension'], interval=kwargs['interval'])
+
+    if result and kwargs['verbose']:
+        print result
+    elif result:
+        print 'LB Monitor configuration on esg {} succeeded, the Monitor Id is {}'.format(kwargs['esg_name'], result)
+    else:
+        print 'LB Monitor configuration on esg {} failed'.format(kwargs['esg_name'])
+
+
+def delete_monitor(client_session, esg_name, monitor_id):
+    """
+    This function deletes a monitor on an ESG
+
+    :type client_session: nsxramlclient.client.NsxClient
+    :param client_session: A nsxramlclient session Object
+    :type esg_name: str
+    :param esg_name: The display name of a Edge Service Gateway used for Load Balancing
+    :type monitor_id: str
+    :param monitor_id: The Id of the Monitor to be deleted
+    :return: Returns True on successful deletion of the Monitor and None on failure or if the ESG was not found
+    :rtype: bool
+    """
+    esg_id, esg_params = get_edge(client_session, esg_name)
+    if not esg_id:
+        return None
+
+    result = client_session.delete('lbMonitor', uri_parameters={'edgeId': esg_id, 'monitorID': monitor_id})
+
+    if result['status'] == 204:
+        return True
+    else:
+        return None
+
+
+def _delete_monitor(client_session, **kwargs):
+    needed_params = ['esg_name', 'mon_id']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+    result = delete_monitor(client_session, kwargs['esg_name'], kwargs['mon_id'])
+
+    if result:
+        print 'Deleting Monitor {} on esg {} succeeded'.format(kwargs['mon_id'], kwargs['esg_name'])
+    else:
+        print 'Deleting Monitor {} on esg {} failed'.format(kwargs['mon_id'], kwargs['esg_name'])
+
+
 def read_monitor(client_session, esg_name, monitor_name):
     """
     This function returns the Id and Details of a Monitor on an ESG
@@ -1085,7 +1229,7 @@ def _list_monitors(client_session, **kwargs):
                        tablefmt="psql")
 
 
-def load_balancer(client_session, esg_name, enabled=None, syslog_enabled=None, syslog_level=None):
+def load_balancer(client_session, esg_name, enabled=None, syslog_enabled=None, syslog_level=None, acceleration=None):
     """
     This function enables / disables the load balancing functionality on the ESG and sets the syslog state and level
 
@@ -1099,6 +1243,8 @@ def load_balancer(client_session, esg_name, enabled=None, syslog_enabled=None, s
     :param syslog_enabled: ('true'/'false'), the desired logging state of the Load Balancer
     :type syslog_level: str
     :param syslog_level: The logging level for Load Balancing on this Edge (INFO/WARNING/etc.)
+    :type acceleration: str
+    :param acceleration: Is acceleration enabled globaly ('true'/'false')
     :rtype: bool
     :return: Return True on success of the operation
     """
@@ -1134,6 +1280,15 @@ def load_balancer(client_session, esg_name, enabled=None, syslog_enabled=None, s
             new_lb_config['loadBalancer']['logging']['logLevel'] = syslog_level
             change_needed = True
 
+    if acceleration == 'true':
+        if current_lb_config['loadBalancer']['accelerationEnabled'] == 'false':
+            new_lb_config['loadBalancer']['accelerationEnabled'] = 'true'
+            change_needed = True
+    else:
+        if current_lb_config['loadBalancer']['accelerationEnabled'] == 'true':
+            new_lb_config['loadBalancer']['accelerationEnabled'] = 'false'
+            change_needed = True
+
     if not change_needed:
         return True
     else:
@@ -1151,7 +1306,7 @@ def _enable_lb(client_session, **kwargs):
         return None
 
     result = load_balancer(client_session, kwargs['esg_name'], enabled=True, syslog_enabled=kwargs['logging'],
-                           syslog_level=kwargs['log_level'])
+                           syslog_level=kwargs['log_level'], acceleration=kwargs['acceleration'])
 
     if not result:
         print 'Enabling Load Balancing on Edge Services Gateway {} failed'.format(kwargs['esg_name'])
@@ -1170,6 +1325,87 @@ def _disable_lb(client_session, **kwargs):
         print 'Disabling Load Balancing on Edge Services Gateway {} failed'.format(kwargs['esg_name'])
     else:
         print 'Disabling Load Balancing on Edge Services Gateway {} succeeded'.format(kwargs['esg_name'])
+
+
+def show_loadbalancer(client_session, esg_name):
+    """
+    This function returns the Loadbalancer Configuration and Status
+
+    :type client_session: nsxramlclient.client.NsxClient
+    :param client_session: A nsxramlclient session Object
+    :type esg_name: str
+    :param esg_name: The display name of a Edge Service Gateway used for Load Balancing
+    :return: returns a list of tuples with one list entry, the first item is a tuple with the following items
+              [0] The status of the LoadBalancer ('true'/'false')
+              [1] The status of the LoadBalancer Syslog ('true'/'false')
+              [2] The Syslog logging level for the LB
+              [3] The Acceleration status ('true'/'false')
+             the second item in the tuple contains the details configuration as a dict as returned from the API
+    :rtype: tuple
+    """
+    esg_id, esg_params = get_edge(client_session, esg_name)
+    if not esg_id:
+        return None
+
+    conf_api = client_session.read('loadBalancer', uri_parameters={'edgeId': esg_id})['body']
+
+    if conf_api['loadBalancer']:
+        conf = conf_api['loadBalancer']
+        conf_log = conf_api['loadBalancer']['logging']
+        return [(conf.get('enabled'), conf_log.get('enable'), conf_log.get('logLevel'),
+                 conf.get('accelerationEnabled'))], conf_api
+    else:
+        return None, None
+
+
+def _show_loadbalancer(client_session, **kwargs):
+    needed_params = ['esg_name']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+    conf, conf_detail = show_loadbalancer(client_session, kwargs['esg_name'])
+
+    if kwargs['verbose']:
+        print json.dumps(conf_detail)
+    else:
+        print tabulate(conf, headers=["LB Enabled", "LB Syslog Enabled", "LB Syslog Level", "Acceleration"],
+                       tablefmt="psql")
+
+
+def delete_load_balancer(client_session, esg_name):
+    """
+    This function deletes the load balancer config on an ESG
+
+    :type client_session: nsxramlclient.client.NsxClient
+    :param client_session: A nsxramlclient session Object
+    :type esg_name: str
+    :param esg_name: The display name of a Edge Service Gateway used for Load Balancing
+    :return: Returns True on successful deletion of the LB Config and None on failure or if the ESG was not found
+    :rtype: bool
+    """
+    esg_id, esg_params = get_edge(client_session, esg_name)
+    if not esg_id:
+        return None
+
+    result = client_session.delete('loadBalancer', uri_parameters={'edgeId': esg_id})
+
+    if result['status'] == 204:
+        return True
+    else:
+        return None
+
+
+def _delete_load_balancer(client_session, **kwargs):
+    needed_params = ['esg_name']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+    result = delete_load_balancer(client_session, kwargs['esg_name'])
+
+    if result:
+        print 'Deleting LB Config on esg {} succeeded'.format(kwargs['esg_name'])
+    else:
+        print 'Deleting LB Config on esg {} failed'.format(kwargs['esg_name'])
 
 
 def contruct_parser(subparsers):
@@ -1197,10 +1433,14 @@ def contruct_parser(subparsers):
     read_vip:           Reads the Id of a VIP on the Load Balancer
     delete_vip:         Deletes a VIP from the Load Balancer
     list_vips           Lists all VIPs on the Load Balancer
-    read_monitor:       Reads the Id of a monitor on the Load Balancer
-    list_monitors:      Lists all monitors on the Load Balancer
+    add_monitor:        Adds a LB Monitor to the Load Balancer
+    delete_monitor:     Deletes a LB Monitor from the Load Balancer
+    read_monitor:       Reads the Id of a LB monitor on the Load Balancer
+    list_monitors:      Lists all LB monitors on the Load Balancer
     enable_lb:          Enables the Load Balancing Service on the ESG
     disable_lb:         Disables the Load Balancing Service on the ESG
+    show_lb:            Show the current LB Configuration and Status
+    delete_lb:          Delete the complete LB Configuration on the Load Balancer
     """)
 
     parser.add_argument("-n",
@@ -1214,7 +1454,8 @@ def contruct_parser(subparsers):
                         help="Application Profile Id")
     parser.add_argument("-pr",
                         "--protocol",
-                        help="Protocol type (TCP,UDP,HTTP), used in Application Profile and VIP configuration")
+                        help="Protocol type (TCP,UDP,HTTP, HTTPS, ICMP), used in Application Profile, VIP and"
+                             "Monitor configuration")
     parser.add_argument("-p",
                         "--persistence",
                         help="Application Profile Persistence Type (sourceip, msrdp, cookie)")
@@ -1230,9 +1471,9 @@ def contruct_parser(subparsers):
     parser.add_argument("-x",
                         "--xforwardedfor",
                         help="Application Profile enable x forwarded for header (true/false)")
-    parser.add_argument("-rd",
-                        "--http_redir_url",
-                        help="Application Profile HTTP redirect URL for HTTP Types")
+    parser.add_argument("-u",
+                        "--url",
+                        help="Application Profile HTTP redirect URL for HTTP Types or URL used for HTTP monitor")
     parser.add_argument("-pon",
                         "--pool_name",
                         help="The name of an Server Pool")
@@ -1298,6 +1539,43 @@ def contruct_parser(subparsers):
     parser.add_argument("-cr",
                         "--conn_rate_limit",
                         help="Connection rate Limit on the virtual server (VIP)")
+    parser.add_argument("-acc",
+                        "--acceleration",
+                        default='false',
+                        help="Desired Acceleration state ('true'/'false')")
+    parser.add_argument("-mon",
+                        "--mon_name",
+                        help="The name of the LB Monitor to add or read")
+    parser.add_argument("-moi",
+                        "--mon_id",
+                        help="The Id of the LB Monitor to be deleted")
+    parser.add_argument("-to",
+                        "--timeout",
+                        default='15',
+                        help="The Timeout value for a LB Monitor")
+    parser.add_argument("-iv",
+                        "--interval",
+                        default='10',
+                        help="The Interval value for a LB Monitor")
+    parser.add_argument("-mr",
+                        "--max_retries",
+                        default='3',
+                        help="The maximum retries for a LB Monitor")
+    parser.add_argument("-mx",
+                        "--mon_expected",
+                        help="The expected response for a LB Monitor")
+    parser.add_argument("-mtd",
+                        "--method",
+                        help="The method used for a LB Monitor (GET, POST, OPTIONS)")
+    parser.add_argument("-snd",
+                        "--send",
+                        help="The send value for a LB Monitor")
+    parser.add_argument("-rcv",
+                        "--receive",
+                        help="The receive value for a LB Monitor")
+    parser.add_argument("-ext",
+                        "--extension",
+                        help="Extensions for a LB Monitor")
     parser.add_argument("-lg",
                         "--logging",
                         help="Logging status for the Load Balancer (true/false)")
@@ -1344,16 +1622,20 @@ def _lb_main(args):
             'read_vip': _read_vip,
             'delete_vip': _delete_vip,
             'list_vips': _list_vips,
+            'add_monitor': _add_monitor,
+            'delete_monitor': _delete_monitor,
             'read_monitor': _read_monitor,
             'list_monitors': _list_monitors,
             'enable_lb': _enable_lb,
-            'disable_lb': _disable_lb
+            'disable_lb': _disable_lb,
+            'show_lb': _show_loadbalancer,
+            'delete_lb': _delete_load_balancer
             }
         command_selector[args.command](client_session, esg_name=args.esg_name, profile_name=args.profile_name,
                                        profile_id=args.profile_id, protocol=args.protocol,
                                        persistence=args.persistence, expire=args.expire, cookie_name=args.cookie_name,
                                        cookie_mode=args.cookie_mode, xforwardedfor=args.xforwardedfor,
-                                       http_redir_url=args.http_redir_url, pool_name=args.pool_name,
+                                       url=args.url, pool_name=args.pool_name, acceleration=args.acceleration,
                                        pool_description=args.pool_description, algorithm=args.algorithm,
                                        algorithm_params=args.algorithm_params, transparent=args.transparent,
                                        member_name=args.member_name, port=args.port, monitor_port=args.monitor_port,
@@ -1362,7 +1644,10 @@ def _lb_main(args):
                                        member=args.member, vip_name=args.vip_name, vip_ip=args.vip_ip,
                                        conn_limit=args.conn_limit, conn_rate_limit=args.conn_rate_limit,
                                        vip_description=args.vip_description, vip_id=args.vip_id, logging=args.logging,
-                                       log_level=args.log_level, verbose=args.verbose)
+                                       log_level=args.log_level, mon_name=args.mon_name, mon_id=args.mon_id,
+                                       timeout=args.timeout, interval=args.interval, max_retries=args.max_retries,
+                                       mon_expected=args.mon_expected, method=args.method, send=args.send,
+                                       receive=args.receive, extension=args.extension, verbose=args.verbose)
     except KeyError as e:
         print('Unknown command: {}'.format(e))
 
