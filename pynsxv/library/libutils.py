@@ -33,8 +33,55 @@ VIM_TYPES = {'datacenter': [vim.Datacenter],
              'dvs_name': [vim.dvs.VmwareDistributedVirtualSwitch],
              'datastore_name': [vim.Datastore],
              'resourcepool_name': [vim.ResourcePool],
-             'host': [vim.HostSystem]}
+             'host': [vim.HostSystem],
+             'dc':[vim.Datacenter],
+             'cluster':[vim.ClusterComputeResource],
+             'vm':[vim.VirtualMachine],
+             'dportgroup':[vim.DistributedVirtualPortgroup],
+             'portgroup':[vim.Network],
+             'respool': [vim.ResourcePool],
+             'vapp': [vim.ResourcePool],
+             'vnic':[vim.VirtualMachine]}
 
+def nametovalue (vccontent, client_session, name, type):
+    if type == 'ipset':
+        ipset_id = str()
+        scopename = 'globalroot-0'
+        ipsets = get_ipsets(client_session, scopename)
+        ipsets_list = ipsets.items()[1][1]['list']['ipset']
+        for i, val in enumerate(ipsets_list):
+            if str(val['name']) == name:
+                ipset_id = val['objectId']
+        return str(ipset_id)
+
+    elif type == 'macset':
+        macset_id = str()
+        scopename = 'globalroot-0'
+        macsets = get_macsets(client_session, scopename)
+        macsets_list = macsets.items()[1][1]['list']['macset']
+        for i, val in enumerate(macsets_list):
+            if str(val['name']) == name:
+                macset_id = val['objectId']
+        return str(macset_id)
+
+    elif type == 'ls':
+        ls_id = str()
+        ls_id, ls_param = get_logical_switch(client_session, name)
+        return str(ls_id)
+
+    elif type == 'secgroup':
+        secgroup_id = str()
+        scopename = 'globalroot-0'
+        secgroups = get_secgroups(client_session, scopename)
+        secgroups_list = secgroups.items()[1][1]['list']['securitygroup']
+        for i, val in enumerate(secgroups_list):
+            if str(val['name']) == name:
+                secgroup_id = val['objectId']
+        return str(secgroup_id)
+
+    else:
+        object = get_mo_by_name(vccontent, name, VIM_TYPES[type])
+        return str(object._moId)
 
 def get_scope(client_session, transport_zone_name):
     """
@@ -53,6 +100,27 @@ def get_scope(client_session, transport_zone_name):
 
     return vdn_scope['objectId'], vdn_scope
 
+
+def get_ipsets(client_session, scopename):
+    """
+    Todo: documentation
+    """
+    ip_sets = client_session.read('ipsetList', uri_parameters={'scopeMoref': scopename})
+    return ip_sets
+
+def get_macsets(client_session, scopename):
+    """
+    Todo: documentation
+    """
+    mac_sets = client_session.read('macsetScopes', uri_parameters={'scopeId': scopename})
+    return mac_sets
+
+def get_secgroups(client_session, scopename):
+    """
+    Todo: documentation
+    """
+    secgroups = client_session.read('secGroupScope', uri_parameters={'scopeId': scopename})
+    return secgroups
 
 def get_logical_switch(client_session, logical_switch_name):
     """
@@ -199,11 +267,7 @@ def dfw_rule_list_helper(client_session, dfw_section, rule_list):
         rule_section_id = rptr['sectionId']
 
         if 'sources' in rptr:
-            #print 'SOURCE IS SPECIFIED'
             sources = client_session.normalize_list_return(rptr['sources']['source'])
-            #print ''
-            #print sources
-            #print ''
             for srcptr in sources:
                 if srcptr['type'] == 'Ipv4Address':
                     rule_source = str(srcptr['value'])
@@ -211,29 +275,13 @@ def dfw_rule_list_helper(client_session, dfw_section, rule_list):
                     rule_source = str(srcptr['name'])
                 else:
                     rule_source = srcptr['name']
-                #print 'RULE SOURCE'
-                #print rule_source
-                #print 'SOURCE LIST'
-                #print source_list
                 source_list.append(rule_source)
-            #print ''
-            #print 'SOURCE APPENDED'
-            #print source_list
-            #print ''
             source_list = " - ".join(source_list)
         else:
-            #print 'SOURCE IS ANY'
             source_list = 'any'
-        #print ''
-        #print source_list
-        #print ''
 
         if 'destinations' in rptr:
-            #print 'DESTINATION IS SPECIFIED'
             destinations = client_session.normalize_list_return(rptr['destinations']['destination'])
-            #print ''
-            #print destinations
-            #print ''
             for dscptr in destinations:
                 if dscptr['type'] == 'Ipv4Address':
                     rule_destination = dscptr['value']
@@ -244,11 +292,7 @@ def dfw_rule_list_helper(client_session, dfw_section, rule_list):
                 destination_list.append(rule_destination)
             destination_list = ' - '.join(destination_list)
         else:
-            #print 'DESTINATION IS ANY'
             destination_list = 'any'
-        #print ''
-        #print destination_list
-        #print ''
 
         if 'services' in rptr:
             services = client_session.normalize_list_return(rptr['services']['service'])
@@ -270,28 +314,16 @@ def dfw_rule_list_helper(client_session, dfw_section, rule_list):
                     service_list.append(rule_services)
             service_list = ' | '.join(service_list)
         else:
-            #print 'SERVICE IS ANY'
             service_list = 'any'
-        #print ''
-        #print service_list
-        #print ''
 
         if 'appliedToList' in rptr:
-            #print 'APPLY-TO IS SPECIFIED'
             applyto = client_session.normalize_list_return(rptr['appliedToList']['appliedTo'])
-            #print ''
-            #print applyto
-            #print ''
             for apptr in applyto:
                 rule_applyto = apptr['name']
                 applyto_list.append(rule_applyto)
             applyto_list = ' - '.join(applyto_list)
         else:
-            #print 'APPLY-TO IS ANY'
             applyto_list = 'any'
-        #print ''
-        #print applyto_list
-        #print ''
 
         rule_list.append([rule_id, rule_name, source_list, destination_list, service_list, rule_action,
                                      rule_direction, rule_packetype, applyto_list, rule_section_id])

@@ -26,8 +26,15 @@ import argparse
 import ConfigParser
 from tabulate import tabulate
 from nsxramlclient.client import NsxClient
+from pyVmomi import vim
 from argparse import RawTextHelpFormatter
 from libutils import dfw_rule_list_helper
+from libutils import get_mo_by_name
+from libutils import connect_to_vc
+from libutils import get_ipsets
+from libutils import nametovalue
+from pkg_resources import resource_filename
+
 
 __author__ = 'Dimitri Desmidt, Emanuele Mazza, Yves Fauser'
 
@@ -205,7 +212,7 @@ def dfw_rule_delete(client_session, rule_id):
             dfw_section_id = str(val[-1])
             section_list, dfwL3_section_details = dfw_section_read(client_session, dfw_section_id)
             etag = str(section_list[0][3])
-            client_session.delete('dfwL3Rule', uri_parameters={'ruleId': dfw_rule_id, 'sectionId': dfw_section_id },
+            client_session.delete('dfwL3Rule', uri_parameters={'ruleId': dfw_rule_id, 'sectionId': dfw_section_id},
                                   additional_headers={'If-match': etag})
             result = [["True", dfw_rule_id, str(val[1]), str(val[-2]), str(val[-1])]]
             return result
@@ -268,7 +275,6 @@ def dfw_section_id_read(client_session, dfw_section_name):
     """
     l2_section_list, l3r_section_list, l3_section_list, detailed_dfw_sections = dfw_section_list(client_session)
     dfw_section_id = list()
-    print dfw_section_id
     dfw_section_name = str(dfw_section_name)
 
     for i, val in enumerate(l3_section_list):
@@ -295,8 +301,12 @@ def _dfw_section_id_read_print(client_session, **kwargs):
         return None
     dfw_section_name = str(kwargs['dfw_section_name'])
     dfw_section_id = dfw_section_id_read(client_session, dfw_section_name)
-    print dfw_section_id
 
+    if kwargs['verbose']:
+        print dfw_section_id
+    else:
+        dfw_section_id_csv = ",".join([str(section['Id']) for section in dfw_section_id])
+        print dfw_section_id_csv
 
 def dfw_rule_id_read(client_session, dfw_section_id, dfw_rule_name):
     """
@@ -349,7 +359,16 @@ def _dfw_rule_id_read_print(client_session, **kwargs):
     dfw_rule_name = str(kwargs['dfw_rule_name'])
 
     dfw_rule_id = dfw_rule_id_read(client_session, dfw_section_id, dfw_rule_name)
-    print dfw_rule_id
+
+    if kwargs['verbose']:
+        print dfw_rule_id
+    else:
+        try:
+            dfw_rule_ids_str = [str(ruleid) for ruleid in dfw_rule_id[dfw_rule_name]]
+            dfw_rule_id_csv = ",".join(dfw_rule_ids_str)
+            print tabulate([(dfw_rule_name, dfw_rule_id_csv)], headers=["Rule Name", "Rule IDs"], tablefmt="psql")
+        except KeyError:
+            print 'Rule name {} not found in section Id {}'.format(kwargs['dfw_rule_name'], kwargs['dfw_section_id'])
 
 
 def dfw_rule_list(client_session):
@@ -696,27 +715,20 @@ def _dfw_rule_destination_delete_print(client_session, **kwargs):
                                       "Packet Type", "Applied-To", "ID (Section)"], tablefmt="psql")
 
 
-
-
-
-def dfw_rule_create(client_session, section_id, rule_name, rule_direction, rule_pktype, rule_disabled, rule_action,
-                    rule_applyto, rule_source_type, rule_source_value, rule_source_excluded, rule_destination_type,
-                    rule_destination_value, rule_destination_excluded, rule_service_protocolname, rule_service_destport,
+def dfw_rule_create(client_session, vccontent, section_id, rule_name, rule_direction, rule_pktype, rule_disabled,
+                    rule_action, rule_applyto, rule_source_type, rule_source_name, rule_source_value,
+                    rule_source_excluded, rule_destination_type, rule_destination_name, rule_destination_value,
+                    rule_destination_excluded, rule_service_protocolname, rule_service_destport,
                     rule_service_srcport, rule_service_name, rule_note, rule_tag, rule_logged):
     """
-    # Todo: complete description
-    This function delete one of the destinations of a dfw rule given the rule id and the destination to be deleted.
-    If two or more destinations have the same name, the function will delete all of them
-    :param client_session: An instance of an NsxClient Session
-    :param section_id: The ID of the dfw rule to retrieve
-    :param rule_name: The destination of the dfw rule to be deleted. If the destination name contains any space, then
-                        it must be enclosed in double quotes (like "VM Network")
-    :return: returns
-            - tabular view of the dfw rule after the deletion process has been performed
-            - ( verbose option ) a list containing a list with the following dfw rule informations after the deletion
-              process has been performed: ID(Rule)- Name(Rule)- Source- Destination- Services- Action - Direction-
-              Pktytpe- AppliedTo- ID(section)
+    # Todo: complete the description
+
     """
+
+    API_TYPES = {'dc': 'Datacenter', 'ipset': 'IPSet', 'macset': 'MACSet', 'ls': 'VirtualWire',
+                 'secgroup': 'SecurityGroup', 'host': 'HostSystem', 'vm':'VirtualMachine',
+                 'cluster': 'ClusterComputeResource', 'dportgroup': 'DistributedVirtualPortgroup',
+                 'portgroup': 'Network', 'respool': 'ResourcePool', 'vapp': 'ResourcePool', 'vnic': 'VirtualMachine'}
 
     # Verify that in the target section a rule with the same name does not exist
     # Find the rule type from the target section
@@ -729,12 +741,10 @@ def dfw_rule_create(client_session, section_id, rule_name, rule_direction, rule_
     rule_type_selector = ''
     for scan in sections:
         for val in scan:
-            print val
             if val[1] == section_id:
                 rule_type_selector = val[2]
 
     if rule_type_selector == '':
-        # Todo: add return data structure
         print 'ERROR: RULE TYPE SELECTOR CANNOT BE EMPTY - ABORT !'
         return
 
@@ -742,7 +752,6 @@ def dfw_rule_create(client_session, section_id, rule_name, rule_direction, rule_
         if rule_type_selector == 'LAYER2':
             for val in l2_rule_list:
                 if val[1] == rule_name:
-                    # Todo : add return data structure
                     print 'RULE WITH SAME NAME EXIST ABORT'
                     return
             rule_type = 'dfwL2Rules'
@@ -767,7 +776,6 @@ def dfw_rule_create(client_session, section_id, rule_name, rule_direction, rule_
         if rule_type_selector == 'LAYER3':
             for val in l3_rule_list:
                 if val[1] == rule_name:
-                    # Todo : add return data structure
                     print 'RULE WITH SAME NAME EXIST ABORT'
                     return
             rule_type = 'dfwL3Rules'
@@ -776,9 +784,7 @@ def dfw_rule_create(client_session, section_id, rule_name, rule_direction, rule_
         rule_schema = client_session.extract_resource_body_example('dfwL3Rules', 'create')
     else:
         for val in l3r_rule_list:
-            print val
             if val[1] == rule_name:
-                # Todo : add return data structure
                 print 'RULE WITH SAME NAME EXIST ABORT'
                 return
         rule_type = 'rules'
@@ -811,23 +817,49 @@ def dfw_rule_create(client_session, section_id, rule_name, rule_direction, rule_
         # Deleting all the three following sections will create the simplest any any any allow any rule
         #
         # If no source is specified the section needs to be deleted
-        if rule_source_value == '' and rule_source_type == '':
+        if (rule_source_value == '' and rule_source_type == '') \
+                or (rule_source_name == '' and rule_source_type == ''):
             del rule_schema['rule']['sources']
-        else:
-            # Mandatory values of a source ( NB: source is an optional value )
-            rule_schema['rule']['sources']['source']['type'] = rule_source_type
+        # Mandatory values of a source ( NB: source is an optional value )
+        elif (rule_source_value != ''):
             rule_schema['rule']['sources']['source']['value'] = rule_source_value
+            rule_schema['rule']['sources']['source']['type'] = API_TYPES[rule_source_type]
+            # Optional values of a source ( if specified )
+            if rule_source_excluded != '':
+                rule_schema['rule']['sources']['@excluded'] = rule_source_excluded
+        elif (rule_source_name != ''):
+            # Code to map name to value
+            rule_source_value = nametovalue(vccontent, client_session, rule_source_name, rule_source_type)
+            if rule_source_value == '':
+                print 'Matching Source Object ID not found - Abort - No operations have been performed on the system'
+                return
+            rule_schema['rule']['sources']['source']['value'] = rule_source_value
+            rule_schema['rule']['sources']['source']['type'] = API_TYPES[rule_source_type]
             # Optional values of a source ( if specified )
             if rule_source_excluded != '':
                 rule_schema['rule']['sources']['@excluded'] = rule_source_excluded
 
         # If no destination is specified the section needs to be deleted
-        if rule_destination_value == '' and rule_destination_type == '':
+        if (rule_destination_value == '' and rule_destination_type == '') \
+                or (rule_destination_name == '' and rule_destination_type == ''):
             del rule_schema['rule']['destinations']
-        else:
-            # Mandatory values of a destination ( NB: destination is an optional value )
-            rule_schema['rule']['destinations']['destination']['type'] = rule_destination_type
+        # Mandatory values of a destination ( NB: destination is an optional value )
+        elif (rule_destination_value != ''):
             rule_schema['rule']['destinations']['destination']['value'] = rule_destination_value
+            #rule_schema['rule']['destinations']['destination']['type'] = rule_destination_type
+            rule_schema['rule']['destinations']['destination']['type'] = API_TYPES[rule_destination_type]
+            # Optional values of a destination ( if specified )
+            if rule_destination_excluded != '':
+                rule_schema['rule']['destinations']['@excluded'] = rule_destination_excluded
+        elif (rule_destination_name != ''):
+            # Code to map name to value
+            rule_destination_value = nametovalue(vccontent, client_session, rule_destination_name,
+                                                 rule_destination_type)
+            if rule_destination_value == '':
+                print 'Matching Destination Object ID not found - No operations have been performed on the system'
+                return
+            rule_schema['rule']['destinations']['destination']['value'] = rule_destination_value
+            rule_schema['rule']['destinations']['destination']['type'] = API_TYPES[rule_destination_type]
             # Optional values of a destination ( if specified )
             if rule_destination_excluded != '':
                 rule_schema['rule']['destinations']['@excluded'] = rule_destination_excluded
@@ -848,8 +880,6 @@ def dfw_rule_create(client_session, section_id, rule_name, rule_direction, rule_
                 rule_schema['rule']['services']['service']['sourcePort'] = rule_service_srcport
         elif rule_service_name != '':
             # Mandatory values of a service specified via application/application group (service is an optional value)
-            # rule_schema['rule']['services']['service']['value'] = 'application-122'
-            # rule_schema['rule']['services']['service']['value'] = 'applicationgroup-28'
             rule_schema['rule']['services']['service']['value'] = ''
             services = client_session.read('servicesScope', uri_parameters={'scopeId': 'globalroot-0'})
             service = services.items()[1][1]['list']['application']
@@ -866,61 +896,26 @@ def dfw_rule_create(client_session, section_id, rule_name, rule_direction, rule_
                 print ('Invalid service specified')
                 return
 
-        print 'rule schema final'
-        print '------------------'
-        print rule_schema
-        rule = client_session.create(rule_type, uri_parameters={'sectionId': section_id}, request_body_dict=rule_schema,
-                                 additional_headers={'If-match': section_etag})
-
-        return
-
     try:
         rule = client_session.create(rule_type, uri_parameters={'sectionId': section_id}, request_body_dict=rule_schema,
                                  additional_headers={'If-match': section_etag})
+
+        l2_rule_list, l3_rule_list, l3r_rule_list = dfw_rule_list(client_session)
+
+        print '*** ETHERNET RULES ***'
+        print tabulate(l2_rule_list, headers=["ID", "Name", "Source", "Destination", "Service", "Action", "Direction",
+                                              "Packet Type", "Applied-To", "ID (Section)"], tablefmt="psql")
+        print ''
+        print '*** LAYER 3 RULES ***'
+        print tabulate(l3_rule_list, headers=["ID", "Name", "Source", "Destination", "Service", "Action", "Direction",
+                                              "Packet Type", "Applied-To", "ID (Section)"], tablefmt="psql")
+
     except:
-        # Todo: add code that returns the API error message or something more informational
         print("Unexpected error - No action have been performed on the system")
     return
 
-    rule_schema = client_session.read(rule_type, uri_parameters={'ruleId': rule_id, 'sectionId': section_id})
-    rule_etag = rule_schema.items()[-1][1]
 
-    if 'destinations' not in rule_schema.items()[1][1]['rule']:
-        # It means the only destination is "any" and it cannot be deleted short of deleting the whole rule
-        rule = dfw_rule_read(client_session, rule_id)
-        return rule
-
-    if type(rule_schema.items()[1][1]['rule']['destinations']['destination']) == list:
-        # It means there are more than one destinations, each one with his own dict
-        destination_list = rule_schema.items()[1][1]['rule']['destinations']['destination']
-        for i, val in enumerate(destination_list):
-            if val['type'] == 'Ipv4Address' and val['value'] == destination or \
-                                    'name' in val and val['name'] == destination:
-                del rule_schema.items()[1][1]['rule']['destinations']['destination'][i]
-
-        # The order dict "rule_schema" must be parsed to find the dict that will be piped into the update function
-        rule = client_session.update(rule_type, uri_parameters={'ruleId': rule_id, 'sectionId': section_id},
-                                     request_body_dict=rule_schema.items()[1][1],
-                                     additional_headers={'If-match': rule_etag})
-        rule = dfw_rule_read(client_session, rule_id)
-        return rule
-
-    if type(rule_schema.items()[1][1]['rule']['destinations']['destination']) == dict:
-        # It means there is just one explicit destination with his dict
-        destination_dict = rule_schema.items()[1][1]['rule']['destinations']['destination']
-        if destination_dict['type'] == 'Ipv4Address' and destination_dict['value'] == destination or \
-                                       'name' in dict.keys(destination_dict) and \
-                                       destination_dict['name'] == destination:
-            del rule_schema.items()[1][1]['rule']['destinations']
-            rule = client_session.update(rule_type, uri_parameters={'ruleId': rule_id, 'sectionId': section_id},
-                                         request_body_dict=rule_schema.items()[1][1],
-                                         additional_headers={'If-match': rule_etag})
-
-        rule = dfw_rule_read(client_session, rule_id)
-        return rule
-
-
-def _dfw_rule_create_print(client_session, **kwargs):
+def _dfw_rule_create_print(client_session, vccontent, **kwargs):
 
     if not (kwargs['dfw_section_id']):
         print ('Mandatory parameters missing: [-sid SECTION ID]')
@@ -1003,8 +998,14 @@ def _dfw_rule_create_print(client_session, **kwargs):
     else:
         rule_source_value = kwargs['dfw_rule_source_value']
 
-    if (rule_source_value == '' and rule_source_type != '') or (rule_source_value != '' and rule_source_type == ''):
-        print ('Rule source parameters "type" and "value" must both be defined or not defined')
+    if not (kwargs['dfw_rule_source_name']):
+        rule_source_name = ''
+    else:
+        rule_source_name = kwargs['dfw_rule_source_name']
+
+    if ((rule_source_value == '' and rule_source_name == '') and rule_source_type != '') \
+            or rule_source_type == '':
+        print ('Rule source parameters "type" and "value/name" must both be defined or not defined')
         return
 
     if not (kwargs['dfw_rule_source_excluded']):
@@ -1020,14 +1021,19 @@ def _dfw_rule_create_print(client_session, **kwargs):
     else:
         rule_destination_type = kwargs['dfw_rule_destination_type']
 
+    if not (kwargs['dfw_rule_destination_name']):
+        rule_destination_name = ''
+    else:
+        rule_destination_name = kwargs['dfw_rule_destination_name']
+
     if not (kwargs['dfw_rule_destination_value']):
         rule_destination_value = ''
     else:
         rule_destination_value = kwargs['dfw_rule_destination_value']
 
-    if (rule_destination_value == '' and rule_destination_type != '') \
-            or (rule_destination_value != '' and rule_destination_type == ''):
-        print ('Rule destination parameters "type" and "value" must both be defined or not defined')
+    if ((rule_destination_value == '' and rule_destination_name == '') and rule_destination_type != '') \
+            or rule_destination_type == '':
+        print ('Rule destination parameters "type" and "value/name" must both be defined or not defined')
         return
 
     if not (kwargs['dfw_rule_destination_excluded']):
@@ -1090,19 +1096,17 @@ def _dfw_rule_create_print(client_session, **kwargs):
             print ('Allowed values for rule logging are "true" and "false"')
             return
 
-    rule = dfw_rule_create(client_session, section_id, rule_name, rule_direction, rule_pktype, rule_disabled,
-                           rule_action, rule_applyto, rule_source_type, rule_source_value, rule_source_excluded,
-                           rule_destination_type, rule_destination_value, rule_destination_excluded,
-                           rule_service_protocolname, rule_service_destport, rule_service_srcport, rule_service_name,
-                           rule_note, rule_tag, rule_logged)
+    rule = dfw_rule_create(client_session, vccontent, section_id, rule_name, rule_direction, rule_pktype, rule_disabled,
+                           rule_action, rule_applyto, rule_source_type, rule_source_name, rule_source_value,
+                           rule_source_excluded, rule_destination_type, rule_destination_name, rule_destination_value,
+                           rule_destination_excluded, rule_service_protocolname, rule_service_destport,
+                           rule_service_srcport, rule_service_name, rule_note, rule_tag, rule_logged)
 
     if kwargs['verbose']:
         print rule
     else:
         print tabulate(rule, headers=["ID", "Name", "Source", "Destination", "Service", "Action", "Direction",
                                       "Packet Type", "Applied-To", "ID (Section)"], tablefmt="psql")
-
-
 
 
 def dfw_rule_service_delete(client_session, rule_id, service):
@@ -1503,6 +1507,9 @@ def contruct_parser(subparsers):
     parser.add_argument("-srctype",
                         "--dfw_rule_source_type",
                         help="dfw rule source type")
+    parser.add_argument("-srcname",
+                        "--dfw_rule_source_name",
+                        help="dfw rule source name")
     parser.add_argument("-srcvalue",
                         "--dfw_rule_source_value",
                         help="dfw rule source value")
@@ -1515,6 +1522,9 @@ def contruct_parser(subparsers):
     parser.add_argument("-dsttype",
                         "--dfw_rule_destination_type",
                         help="dfw rule destination type")
+    parser.add_argument("-dstname",
+                        "--dfw_rule_destination_name",
+                        help="dfw rule destination name")
     parser.add_argument("-dstvalue",
                         "--dfw_rule_destination_value",
                         help="dfw rule destination value")
@@ -1567,8 +1577,17 @@ def _dfw_main(args):
     config = ConfigParser.ConfigParser()
     assert config.read(args.ini), 'could not read config file {}'.format(args.ini)
 
+    try:
+        nsxramlfile = config.get('nsxraml', 'nsxraml_file')
+    except (ConfigParser.NoSectionError):
+        nsxramlfile_dir = resource_filename(__name__, 'api_spec')
+        nsxramlfile = '{}/nsxvapi.raml'.format(nsxramlfile_dir)
+
     client_session = NsxClient(config.get('nsxraml', 'nsxraml_file'), config.get('nsxv', 'nsx_manager'),
                                config.get('nsxv', 'nsx_username'), config.get('nsxv', 'nsx_password'), debug=debug)
+
+    vccontent = connect_to_vc(config.get('vcenter', 'vcenter'), config.get('vcenter', 'vcenter_user'),
+                              config.get('vcenter', 'vcenter_passwd'))
 
     try:
         command_selector = {
@@ -1587,7 +1606,8 @@ def _dfw_main(args):
             'create_section': _dfw_section_create_print,
             'create_rule': _dfw_rule_create_print,
             }
-        command_selector[args.command](client_session, verbose=args.verbose, dfw_section_id=args.dfw_section_id,
+        command_selector[args.command](client_session, vccontent=vccontent, verbose=args.verbose,
+                                       dfw_section_id=args.dfw_section_id,
                                        dfw_rule_id=args.dfw_rule_id, dfw_section_name=args.dfw_section_name,
                                        dfw_rule_name=args.dfw_rule_name, dfw_rule_source=args.dfw_rule_source,
                                        dfw_rule_destination=args.dfw_rule_destination,
@@ -1596,9 +1616,11 @@ def _dfw_main(args):
                                        dfw_rule_direction=args.dfw_rule_direction, dfw_rule_pktype=args.dfw_rule_pktype,
                                        dfw_rule_disabled=args.dfw_rule_disabled, dfw_rule_action=args.dfw_rule_action,
                                        dfw_rule_source_type=args.dfw_rule_source_type,
+                                       dfw_rule_source_name=args.dfw_rule_source_name,
                                        dfw_rule_source_value=args.dfw_rule_source_value,
                                        dfw_rule_source_excluded=args.dfw_rule_source_excluded,
                                        dfw_rule_destination_type=args.dfw_rule_destination_type,
+                                       dfw_rule_destination_name=args.dfw_rule_destination_name,
                                        dfw_rule_destination_value=args.dfw_rule_destination_value,
                                        dfw_rule_destination_excluded=args.dfw_rule_destination_excluded,
                                        dfw_rule_service_protocolname=args.dfw_rule_service_protocolname,
@@ -1608,8 +1630,8 @@ def _dfw_main(args):
                                        dfw_rule_tag=args.dfw_rule_tag, dfw_rule_note=args.dfw_rule_note,
                                        dfw_rule_logged=args.dfw_rule_logged,)
 
-    except KeyError:
-        print('Unknown command ')
+    except KeyError as e:
+        print('Unknown command {}'.format(e))
 
 
 def main():
