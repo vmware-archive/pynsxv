@@ -1434,7 +1434,11 @@ def _dfw_section_create_print(client_session, **kwargs):
         return None
 
     if not (kwargs['dfw_section_type']):
-        print ('Mandatory parameters missing: [-stype SECTION TYPE]')
+        print ('Mandatory parameters missing: [-stype SECTION TYPE] - Allowed values are L2/L3/L3R -- Aborting')
+        return None
+
+    if kwargs['dfw_section_name'] != 'L3' or kwargs['dfw_section_name'] != 'L2' or kwargs['dfw_section_name'] != 'L3R':
+        print ('Mandatory parameters missing: [-stype SECTION TYPE] - Allowed values are L2/L3/L3R -- Aborting')
         return None
 
     dfw_section_name = kwargs['dfw_section_name']
