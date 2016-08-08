@@ -14,7 +14,7 @@ long_description = read('README.rst')
 
 setup(
     name='PyNSXv',
-    version='0.4',
+    version='0.4.1',
     packages=find_packages(),
     package_data={'pynsxv':['nsx.ini', 'library/api_spec/nsxvapi.raml', 'library/api_spec/schemas/*']},
     url='http://github.com/vmware/pynsxv',
