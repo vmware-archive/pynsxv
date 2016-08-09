@@ -710,12 +710,52 @@ def _dfw_rule_destination_delete_print(client_session, **kwargs):
         print tabulate(rule, headers=["ID", "Name", "Source", "Destination", "Service", "Action", "Direction",
                                       "Packet Type", "Applied-To", "ID (Section)"], tablefmt="psql")
 
+#def dfw_rule_create(client_session, vccontent, section_id, rule_name, rule_direction, rule_pktype, rule_disabled,
+                    #rule_action, rule_applyto, rule_source_type, rule_source_name, rule_source_value,
+                    #rule_source_excluded, rule_destination_type, rule_destination_name, rule_destination_value,
+                    #rule_destination_excluded, rule_service_protocolname, rule_service_destport,
+                    #rule_service_srcport, rule_service_name, rule_note, rule_tag, rule_logged):
 
-def dfw_rule_create(client_session, vccontent, section_id, rule_name, rule_direction, rule_pktype, rule_disabled,
-                    rule_action, rule_applyto, rule_source_type, rule_source_name, rule_source_value,
-                    rule_source_excluded, rule_destination_type, rule_destination_name, rule_destination_value,
-                    rule_destination_excluded, rule_service_protocolname, rule_service_destport,
-                    rule_service_srcport, rule_service_name, rule_note, rule_tag, rule_logged):
+def dfw_rule_create(client_session, section_id, rule_name, rule_source_value, rule_destination_value, rule_direction,
+                    rule_pktype, rule_applyto, rule_disabled='false', rule_action='allow',
+                    rule_source_type='Ipv4Address', rule_destination_type='Ipv4Address', rule_source_excluded='false',
+                    rule_destination_excluded='false', rule_logged='false', rule_source_name=None,
+                    rule_destination_name=None, rule_service_protocolname=None, rule_service_destport=None,
+                    rule_service_srcport=None, rule_service_name=None, rule_note=None, rule_tag=None, vccontent=None):
+
+    if rule_applyto == 'any':
+        rule_applyto = 'ANY'
+    elif rule_applyto == 'dfw':
+        rule_applyto = 'DISTRIBUTED_FIREWALL'
+    elif rule_applyto == 'edgegw':
+        rule_applyto = 'ALL_EDGES'
+
+    if not rule_source_name:
+        rule_source_name = ''
+
+    if not rule_destination_name:
+        rule_destination_name = ''
+
+    if not rule_service_protocolname:
+        rule_service_protocolname = ''
+
+    if not rule_service_destport:
+        rule_service_destport = ''
+
+    if not rule_service_srcport:
+        rule_service_srcport = ''
+
+    if not rule_service_name:
+        rule_service_name = ''
+
+    if not rule_note:
+        rule_note = ''
+
+    if not rule_tag:
+        rule_tag = ''
+
+    if not vccontent:
+        vccontent = ''
 
     # TODO: complete the description
 
@@ -740,14 +780,16 @@ def dfw_rule_create(client_session, vccontent, section_id, rule_name, rule_direc
                 rule_type_selector = val[2]
 
     if rule_type_selector == '':
-        print 'ERROR: RULE TYPE SELECTOR CANNOT BE EMPTY - ABORT !'
+        print 'Error: cannot find a section matching the section-id specified. Aborting. No action have been performed ' \
+              'on the system'
         return
 
     if rule_type_selector == 'LAYER2' or rule_type_selector == 'LAYER3':
         if rule_type_selector == 'LAYER2':
             for val in l2_rule_list:
                 if val[1] == rule_name:
-                    print 'RULE WITH SAME NAME EXIST ABORT'
+                    print 'Error: a rule with the same name already exist. Aborting. No action have been performed on' \
+                          ' the system'
                     return
             rule_type = 'dfwL2Rules'
             section_type = 'dfwL2SectionId'
@@ -775,7 +817,8 @@ def dfw_rule_create(client_session, vccontent, section_id, rule_name, rule_direc
                 rule_action = 'deny'
             for val in l3_rule_list:
                 if val[1] == rule_name:
-                    print 'RULE WITH SAME NAME EXIST ABORT'
+                    print 'Error: a rule with the same name already exist. Aborting. No action have been performed on' \
+                          ' the system'
                     return
             rule_type = 'dfwL3Rules'
             section_type = 'dfwL3SectionId'
@@ -784,12 +827,14 @@ def dfw_rule_create(client_session, vccontent, section_id, rule_name, rule_direc
     else:
         for val in l3r_rule_list:
             if val[1] == rule_name:
-                print 'RULE WITH SAME NAME EXIST ABORT'
+                print 'Error: a rule with the same name already exist. Aborting. No action have been performed on' \
+                          ' the system'
                 return
         rule_type = 'rules'
         section_type = 'section'
         rule_schema = client_session.extract_resource_body_example(rule_type, 'create')
-        print 'L3 redirect rules are not supported in this version - No action will be performed on the system'
+        print 'Error: L3 redirect rules are not supported in this version. Aborting. No action have been performed on' \
+              ' the system'
         return
 
     section = client_session.read(section_type, uri_parameters={'sectionId': section_id})
@@ -896,10 +941,24 @@ def dfw_rule_create(client_session, vccontent, section_id, rule_name, rule_direc
     try:
         rule = client_session.create(rule_type, uri_parameters={'sectionId': section_id}, request_body_dict=rule_schema,
                                  additional_headers={'If-match': section_etag})
+
         return rule
 
     except:
-        print("Unexpected error - No action have been performed on the system")
+        print("")
+        print 'Error: cannot create rule. It is possible that some of the parameters are not compatible. Please check' \
+              'the following rules are obeyed:'
+        print'(*) If the rule is applied to all edge gateways, then "inout" is the only allowed value for parameter -dir'
+        print'(*) Allowed values for -pktype parameter are any/ipv6/ipv4'
+        print'(*) For a L3 rules applied to all edge gateways "any" is the only allowed value for parameter -pktype'
+        print'(*) For a L2 rule "any" is the only allowed value for parameter -pktype'
+        print'(*) For a L3 rule allowed values for -action parameter are allow/block/reject'
+        print'(*) For a L2 rule allowed values for -action parameter are allow/block'
+        print("")
+        print'Aborting. No action have been performed on the system'
+        print("")
+        print("Printing current DFW rule schema used in API call")
+        print("-------------------------------------------------")
         print rule_schema
     return
 
@@ -1088,11 +1147,17 @@ def _dfw_rule_create_print(client_session, vccontent, **kwargs):
             print ('Allowed values for rule logging are "true" and "false"')
             return
 
-    rule = dfw_rule_create(client_session, vccontent, section_id, rule_name, rule_direction, rule_pktype, rule_disabled,
-                           rule_action, rule_applyto, rule_source_type, rule_source_name, rule_source_value,
-                           rule_source_excluded, rule_destination_type, rule_destination_name, rule_destination_value,
-                           rule_destination_excluded, rule_service_protocolname, rule_service_destport,
-                           rule_service_srcport, rule_service_name, rule_note, rule_tag, rule_logged)
+    #rule = dfw_rule_create(client_session, vccontent, section_id, rule_name, rule_direction, rule_pktype, rule_disabled,
+                           #rule_action, rule_applyto, rule_source_type, rule_source_name, rule_source_value,
+                           #rule_source_excluded, rule_destination_type, rule_destination_name, rule_destination_value,
+                           #rule_destination_excluded, rule_service_protocolname, rule_service_destport,
+                           #rule_service_srcport, rule_service_name, rule_note, rule_tag, rule_logged)
+
+    rule = dfw_rule_create(client_session, section_id, rule_name, rule_source_value, rule_destination_value,
+                           rule_direction, rule_pktype, rule_applyto, rule_disabled, rule_action, rule_source_type,
+                           rule_destination_type, rule_source_excluded,rule_destination_excluded, rule_logged,
+                           rule_source_name, rule_destination_name, rule_service_protocolname, rule_service_destport,
+                           rule_service_srcport, rule_service_name, rule_note, rule_tag, vccontent)
 
     if kwargs['verbose']:
         print rule
@@ -1108,12 +1173,6 @@ def _dfw_rule_create_print(client_session, vccontent, **kwargs):
         print '*** LAYER 3 RULES ***'
         print tabulate(l3_rule_list, headers=["ID", "Name", "Source", "Destination", "Service", "Action", "Direction",
                                               "Packet Type", "Applied-To", "ID (Section)"], tablefmt="psql")
-
-        print''
-        print '*** REDIRECT RULES ***'
-        print tabulate(l3r_rule_list, headers=["ID", "Name", "Source", "Destination", "Service", "Action", "Direction",
-                                               "Packet Type", "Applied-To", "ID (Section)"], tablefmt="psql")
-
 
 def dfw_rule_service_delete(client_session, rule_id, service):
     """
