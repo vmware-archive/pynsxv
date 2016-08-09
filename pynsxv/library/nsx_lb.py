@@ -802,8 +802,6 @@ def add_vip(client_session, esg_name, vip_name, app_profile, vip_ip, protocol, p
     if acceleration != 'true':
         acceleration = 'false'
 
-    print acceleration
-
     vip = client_session.extract_resource_body_example('virtualServers', 'create')
 
     vip['virtualServer']['name'] = vip_name
