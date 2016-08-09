@@ -532,7 +532,8 @@ def _esg_dgw_read(client_session, **kwargs):
         print 'Failed to get default gateway info of Edge {}'.format(kwargs['esg_name'])
 
 
-def esg_route_add(client_session, esg_name, network, next_hop, vnic, mtu=None, admin_distance=None, description=None):
+def esg_route_add(client_session, esg_name, network, next_hop, vnic=None, mtu=None,
+                  admin_distance=None, description=None):
     """
     This function adds a static route to an ESG
     :param client_session: An instance of an NsxClient Session
@@ -577,7 +578,7 @@ def _esg_route_add(client_session, **kwargs):
         return None
 
     result = esg_route_add(client_session, kwargs['esg_name'], kwargs['route_net'], kwargs['next_hop'],
-                           kwargs['vnic_index'])
+                           vnic=kwargs['vnic_index'])
 
     if result:
         print 'Added route {} to Edge Services Router {}'.format(kwargs['route_net'], kwargs['esg_name'])
