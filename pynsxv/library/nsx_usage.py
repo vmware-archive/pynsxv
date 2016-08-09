@@ -89,7 +89,8 @@ def ls_state(session):
     all_logical_switches = session.read_all_pages('logicalSwitchesGlobal', 'read')
     ls_list = [(ls['name'], ls['objectId']) for ls in all_logical_switches if ls['isUniversal'] == 'false']
     uls_list = [(ls['name'], ls['objectId']) for ls in all_logical_switches if ls['isUniversal'] == 'true']
-    return len(ls_list), ls_list, len(uls_list), uls_list
+    hwgwls_list = [(ls['name'], ls['objectId']) for ls in all_logical_switches if 'hardwareGatewayBinding' in ls]
+    return len(ls_list), ls_list, len(uls_list), uls_list, len(hwgwls_list), hwgwls_list
 
 
 def edge_state(session):
@@ -156,31 +157,34 @@ def _usage_main(args):
     print 'Done'
     if args.verbose:
         print tabulate(host_list, headers=["Host name", "Cluster name", "Host moid", "Cluster moid", "DFW enabled"],
-                       tablefmt="psql")
+                       tablefmt="psql"), "\n"
 
     print 'retrieving the hosts detailed information ....'
     host_info = get_host_info(vccontent, host_list)
     if args.verbose:
-        print tabulate(host_info, headers=["Host name", "CPU Socket count", "VM count"], tablefmt="psql")
+        print tabulate(host_info, headers=["Host name", "CPU Socket count", "VM count"], tablefmt="psql"), "\n"
 
     print 'retrieving the number of NSX logical switches ....',
-    ls_count, ls_list, uls_count, uls_list = ls_state(client_session)
+    ls_count, ls_list, uls_count, uls_list, hwgwls_count, hwgwls_list = ls_state(client_session)
     print 'Done'
     if args.verbose:
-        print tabulate(ls_list, headers=["Logical switch name", "Logical switch Id"], tablefmt="psql")
-        print tabulate(uls_list, headers=["Universal Logical switch name", "Logical switch Id"], tablefmt="psql")
+        print tabulate(ls_list, headers=["Logical switch name", "Logical switch Id"], tablefmt="psql"), "\n"
+        print tabulate(uls_list, headers=["Universal Logical switch name", "Logical switch Id"], tablefmt="psql"), "\n"
+        print tabulate(hwgwls_list, headers=["Logical switches using Hardware Gateway bindings", "Logical switch Id"],
+                       tablefmt="psql"), "\n"
 
     print 'retrieving the number of NSX gateways (ESGs and DLRs) ....',
     esg_count, esg_list, dlr_count, dlr_list = edge_state(client_session)
     print 'Done'
     if args.verbose:
-        print tabulate(esg_list, headers=["Edge service gw name", "Edge service gw Id"], tablefmt="psql")
-        print tabulate(dlr_list, headers=["Logical router name", "Logical router Id"], tablefmt="psql")
+        print tabulate(esg_list, headers=["Edge service gw name", "Edge service gw Id"], tablefmt="psql"), "\n"
+        print tabulate(dlr_list, headers=["Logical router name", "Logical router Id"], tablefmt="psql"), "\n"
 
     edge_feature_list = esg_features_collect(client_session, esg_list)
     if args.verbose:
-        print tabulate(edge_feature_list, headers=["Edge service gw name", "Edge service gw Id", "Loadbalancer",
-                                                   "Firewall", "Routing", "IPSec", "L2VPN", "SSL-VPN"], tablefmt="psql")
+        print tabulate(edge_feature_list,
+                       headers=["Edge service gw name", "Edge service gw Id", "Loadbalancer",
+                                "Firewall", "Routing", "IPSec", "L2VPN", "SSL-VPN"], tablefmt="psql"), "\n"
 
     lb_esg = len([edge for edge in edge_feature_list if edge[2] == 'true'])
     fw_esg = len([edge for edge in edge_feature_list if edge[3] == 'true'])
@@ -196,6 +200,7 @@ def _usage_main(args):
                     ('Number of CPU Sockets enabled for DFW', str(dfw_sockets)),
                     ('Number of local logical switches', str(ls_count)),
                     ('Number of universal logical switches', str(uls_count)),
+                    ('Number of logical switches with Hardware Gateway bindings', str(hwgwls_count)),
                     ('Number of Edge services Gateways', str(esg_count)),
                     ('Number of Distributed Routers', str(dlr_count)),
                     ('Number of Service Gateways with Loadbalancing Enabled', str(lb_esg)),
