@@ -194,7 +194,7 @@ pip install pynsxv
   
 **[Installing PyNSXv on Ubuntu](###Installing PyNSXv on Ubuntu)**   
 **[Installing PyNSXv on a MAC](###Installing PyNSXv on a MAC)**  
-**[Installing PyNSXv on Windows](###Installing PyNSXv on Windows)**    
+**[Installing PyNSXv on Windows](#Installing PyNSXv on Windows)**    
 **[Various caveats](###Various caveats)**   
 
 <a name="Installing PyNSXv on Ubuntu"></a>
@@ -267,7 +267,7 @@ pip install pynsxv
 ```
 
 <a name="Installing PyNSXv on Windows"></a>
-###Installing PyNSXv on Windows
+#Installing PyNSXv on Windows
 
 Install python 2.x on your Windows (https://www.python.org/downloads/). *Note: Attention do NOT install python 3.x.*
 
