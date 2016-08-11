@@ -22,7 +22,7 @@
 # AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.”
 
-from pyVim.connect import SmartConnect
+from pprint import pprint
 from pyVmomi import vim
 import ssl
 
@@ -95,12 +95,14 @@ def get_scope(client_session, transport_zone_name):
     try:
         vdn_scopes = client_session.read('vdnScopes', 'read')['body']
         vdn_scope_list = client_session.normalize_list_return(vdn_scopes['vdnScopes'])
-        vdn_scope = [scope['vdnScope'] for scope in vdn_scope_list
-                     if scope['vdnScope']['name'] == transport_zone_name][0]
+	vdn_scope = [scope['vdnScope'] for scope in vdn_scope_list
+			if scope['vdnScope'][0]['name'] == transport_zone_name][0]
+
     except KeyError:
         return None, None
 
-    return vdn_scope['objectId'], vdn_scope
+
+    return vdn_scope[0]['objectId'], vdn_scope[0]
 
 
 def get_ipsets(client_session, scopename):
