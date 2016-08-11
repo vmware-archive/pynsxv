@@ -14,7 +14,7 @@ long_description = read('README.rst')
 
 setup(
     name='PyNSXv',
-    version='0.4.1',
+    version='0.4.2dev2',
     packages=find_packages(),
     package_data={'pynsxv':['nsx.ini', 'library/api_spec/nsxvapi.raml', 'library/api_spec/schemas/*']},
     url='http://github.com/vmware/pynsxv',
@@ -29,7 +29,7 @@ setup(
     'Topic :: Utilities',
     'License :: OSI Approved :: MIT License',
     'Programming Language :: Python :: 2.7'],
-    install_requires=['nsxramlclient>=2.0.1', 'pyvmomi', 'tabulate'],
+    install_requires=['nsxramlclient>=2.0.1', 'pyvmomi', 'tabulate', 'setuptools>=11.3'],
     entry_points={
         'console_scripts': ['pynsxv = pynsxv.cli:main']
     }
