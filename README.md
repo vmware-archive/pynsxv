@@ -277,7 +277,6 @@ Install of pynsxv.
 ```
 C:\>pip install pynsxv
 
-C:\>pip install pyOpenSSL
 ```
 
 You can find more details in the /docs folder [Windows Installation Details](docs/Install%20pynsxv-v1.0.pdf)
