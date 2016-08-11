@@ -276,7 +276,6 @@ Add python installation folder in the Windows path to be able to run the pynsxv 
 Install of pynsxv.
 ```
 C:\>pip install pynsxv
-
 ```
 
 You can find more details in the /docs folder [Windows Installation Details](docs/Install%20pynsxv-v1.0.pdf)
