@@ -22,7 +22,7 @@
 # AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.”
 
-from pprint import pprint
+from pyVim.connect import SmartConnect
 from pyVmomi import vim
 import ssl
 
@@ -100,7 +100,6 @@ def get_scope(client_session, transport_zone_name):
 
     except KeyError:
         return None, None
-
 
     return vdn_scope[0]['objectId'], vdn_scope[0]
 
