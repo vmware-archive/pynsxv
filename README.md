@@ -192,13 +192,13 @@ PyNSXv can be installed using pip:
 pip install pynsxv
 ```
   
-**[Installing PyNSXv on Ubuntu](###Installing PyNSXv on Ubuntu)**   
-**[Installing PyNSXv on a MAC](###Installing PyNSXv on a MAC)**  
-**[Installing PyNSXv on Windows](###Installing PyNSXv on Windows)**    
-**[Various caveats](###Various caveats)**   
+**[Installing PyNSXv on Ubuntu](#Installing PyNSXv on Ubuntu)**   
+**[Installing PyNSXv on a MAC](#Installing PyNSXv on a MAC)**  
+**[Installing PyNSXv on Windows](#Installing PyNSXv on Windows)**    
+**[Various caveats](#Various caveats)**   
 
 <a name="Installing PyNSXv on Ubuntu"></a>
-###Installing PyNSXv on Ubuntu
+#Installing PyNSXv on Ubuntu
 
 First update/upgrade using apt and install the python-openssl, libxml and libxslt dependencies of the `nsxramclient` using apt. Please also consult the Github page of the `nsxramclient` and `pyvmomi` in case you run into issues during the installation of these dependencies.
 
@@ -214,7 +214,7 @@ sudo pip install pynsxv
 ```
 
 <a name="Installing PyNSXv on a MAC"></a>
-###Installing PyNSXv on a MAC
+#Installing PyNSXv on a MAC
 
 Make sure to install XCODE and its Command Line utilities:
 https://itunes.apple.com/app/xcode/id497799835?mt=12 
@@ -267,7 +267,7 @@ pip install pynsxv
 ```
 
 <a name="Installing PyNSXv on Windows"></a>
-###Installing PyNSXv on Windows
+#Installing PyNSXv on Windows
 
 Install python 2.x on your Windows (https://www.python.org/downloads/). *Note: Attention do NOT install python 3.x.*
 
@@ -281,7 +281,7 @@ C:\>pip install pynsxv
 You can find more details in the /docs folder [Windows Installation Details](docs/Install%20pynsxv-v1.0.pdf)
 
 <a name="Various caveats"></a>
-###Various caveats
+#Various caveats
 
 Should you see this warning message:
 `UserWarning: /home/vagrant/.python-eggs is writable by group/others and vulnerable to attack when used with get_resource_filename. Consider a more secure location (set with .set_extraction_path or the PYTHON_EGG_CACHE environment variable).`
