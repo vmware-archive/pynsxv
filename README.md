@@ -204,7 +204,7 @@ First update/upgrade using apt and install the python-openssl, libxml and libxsl
 
 ```shell
 apt-get update && apt-get upgrade -y
-apt-get install libssl-dev libxml2-dev libxslt-dev python-dev zlib1g-dev python-pip -y
+apt-get install libssl-dev libffi-dev libxml2-dev libxslt-dev python-dev zlib1g-dev python-pip -y
 ```
 
 After this you can simply install PyNSXv using pip:
