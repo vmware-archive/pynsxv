@@ -47,11 +47,11 @@ def host_prep_state(session):
     hosts = []
     for cluster_moid, cluster_name, dfw_enabled in clusters:
         hosts_status = session.read('childStatus', uri_parameters={'parentResourceID': cluster_moid})
-	if hosts_status['body']['resourceStatuses']: # fix for clusters w/o hosts. ~grb
-		enabled_hosts = session.normalize_list_return(hosts_status['body']['resourceStatuses']['resourceStatus'])
-        	hosts.extend([(host['resource']['name'], host['resource']['scope']['name'],
-                	        host['resource']['objectId'], host['resource']['scope']['id'],
-                       		dfw_enabled) for host in enabled_hosts])
+    if hosts_status['body']['resourceStatuses']: # fix for clusters w/o hosts. ~grb
+        enabled_hosts = session.normalize_list_return(hosts_status['body']['resourceStatuses']['resourceStatus'])
+            hosts.extend([(host['resource']['name'], host['resource']['scope']['name'],
+                            host['resource']['objectId'], host['resource']['scope']['id'],
+                            dfw_enabled) for host in enabled_hosts])
 
 
     prepared_hosts_count = len(hosts)
