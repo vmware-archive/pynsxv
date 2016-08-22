@@ -65,7 +65,7 @@ def get_host_info(vccontent, host_list):
         print 'retrieving details (hardware & vms) for host {} ....'.format(host_name),
         host_object = [host_mo for host_mo in host_modict if host_mo.name == host_name][0]
         cpu_count = host_object.hardware.cpuInfo.numCpuPackages
-        #TODO: Filter service VMs out of the count
+        # TODO: Filter service VMs out of the count
         vm_moids = [vm._moId for vm in host_object.vm]
         vm_count = len(vm_moids)
         host_info.extend([(host_name, cpu_count, vm_count)])
@@ -118,11 +118,63 @@ def _single_esg_feature_collect(session, edge_id, edge_name):
     return return_tupple
 
 
+def _single_dlr_feature_collect(session, dlr_id, dlr_name):
+    print 'retrieving the features for DLR {}/{} ....'.format(dlr_name, dlr_id),
+    edge_details = session.read('nsxEdge', uri_parameters={'edgeId': dlr_id})['body']
+    print 'Done'
+    feature_map = {}
+    if edge_details['edge']['features']['bridges'].get('bridge'):
+        feature_map.update({'bridges': 'true'})
+    else:
+        feature_map.update({'bridges': 'false'})
+
+    return_tupple = (dlr_name, dlr_id, feature_map['bridges'])
+
+    return return_tupple
+
+
 def esg_features_collect(session, edge_list):
     feature_list = []
     for edge_name, edge_id in edge_list:
         feature_list.append(_single_esg_feature_collect(session, edge_name, edge_id))
     return feature_list
+
+
+def dlr_features_collect(session, dlr_list):
+    feature_list = []
+    for dlr_name, dlr_id in dlr_list:
+        feature_list.append(_single_dlr_feature_collect(session, dlr_name, dlr_id))
+    return feature_list
+
+
+def dlb_state(session):
+    dlb_rules = []
+    dlb_rule_count = 0
+
+    fw_config = session.read('dfwConfig')['body']['firewallConfiguration']
+
+    redirect_sections = fw_config.get('layer3RedirectSections')
+    if not redirect_sections:
+        return 0, []
+
+    all_sections  = redirect_sections.get('section')
+    if not all_sections:
+        return 0, []
+    all_sections = session.normalize_list_return(all_sections)
+
+    for section in all_sections:
+        rules = section.get('rule')
+        rules = session.normalize_list_return(rules)
+        for rule in rules:
+            rule_action = rule.get('action')
+            rule_name = rule.get('name')
+            rule_id = rule.get('@id')
+            section_id = rule.get('sectionId')
+            if rule_action == 'balance':
+                dlb_rules.append((rule_name, rule_id, section_id))
+                dlb_rule_count += 1
+
+    return dlb_rule_count, dlb_rules
 
 
 def contruct_parser(subparsers):
@@ -142,7 +194,7 @@ def _usage_main(args):
 
     try:
         nsxramlfile = config.get('nsxraml', 'nsxraml_file')
-    except (ConfigParser.NoSectionError):
+    except ConfigParser.NoSectionError:
         nsxramlfile_dir = resource_filename(__name__, 'api_spec')
         nsxramlfile = '{}/nsxvapi.raml'.format(nsxramlfile_dir)
 
@@ -186,12 +238,25 @@ def _usage_main(args):
                        headers=["Edge service gw name", "Edge service gw Id", "Loadbalancer",
                                 "Firewall", "Routing", "IPSec", "L2VPN", "SSL-VPN"], tablefmt="psql"), "\n"
 
+    dlr_feature_list = dlr_features_collect(client_session, dlr_list)
+    if args.verbose:
+        print tabulate(dlr_feature_list, headers=["Edge service gw name", "Edge service gw Id",
+                                                   "Software Bridging"], tablefmt="psql"), "\n"
+
+    print 'retrieving the number of DLB rules ....',
+    dlb_rule_count, dlb_rules = dlb_state(client_session)
+    print 'Done'
+    if args.verbose:
+        print tabulate(dlb_rules, headers=["DLB rule Name", "DLB rules Id", "DLB rule section Id"],
+                       tablefmt="psql"), "\n"
+
     lb_esg = len([edge for edge in edge_feature_list if edge[2] == 'true'])
     fw_esg = len([edge for edge in edge_feature_list if edge[3] == 'true'])
     rt_esg = len([edge for edge in edge_feature_list if edge[4] == 'true'])
     ipsec_esg = len([edge for edge in edge_feature_list if edge[5] == 'true'])
     l2vpn_esg = len([edge for edge in edge_feature_list if edge[6] == 'true'])
     sslvpn_esg = len([edge for edge in edge_feature_list if edge[7] == 'true'])
+    swbridge_dlr = len([dlr for dlr in dlr_feature_list if dlr[2] == 'true'])
     nsx_sockets, dfw_sockets = calculate_socket_usage(host_list, host_info)
 
     output_table = [('Number of hosts prepared for NSX', str(host_count)),
@@ -208,7 +273,9 @@ def _usage_main(args):
                     ('Number of Service Gateways with Routing Enabled', str(rt_esg)),
                     ('Number of Service Gateways with IPSec Enabled', str(ipsec_esg)),
                     ('Number of Service Gateways with L2VPN Enabled', str(l2vpn_esg)),
-                    ('Number of Service Gateways with SSL-VPN Enabled', str(sslvpn_esg))]
+                    ('Number of Service Gateways with SSL-VPN Enabled', str(sslvpn_esg)),
+                    ('Number of DLRs with Software Bridging Enabled', str(swbridge_dlr)),
+                    ('Number of DLB rules in DFW Redirect Sections', str(dlb_rule_count))]
 
     print '\n\nNSX usage summary:'
     print tabulate(output_table, headers=["Feature / Property / Type", "Count"], tablefmt="psql")
