@@ -22,11 +22,12 @@
 # AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.”
 
-__author__ = 'Dimitri Desmidt'
+__author__ = 'Dimitri Desmidt, Andreas la Quiante'
 
 import argparse
 import ConfigParser
 import json
+import re
 from libutils import get_logical_switch, get_vdsportgroupid, connect_to_vc
 from libutils import get_datacentermoid, get_edgeresourcepoolmoid, get_edge, get_datastoremoid
 from tabulate import tabulate
@@ -34,6 +35,59 @@ from nsxramlclient.client import NsxClient
 from argparse import RawTextHelpFormatter
 from pkg_resources import resource_filename
 
+def dlr_set_cli_credentials(client_session, dlr_name,account, new_pwd):
+    """
+    added by ALQ. This function updated the CLI password of a dlr
+    :param dlr_id: dlr uuid
+    :param new_pwd: new password for CLI access
+    """
+
+    dlr_id, dlr_params = dlr_read(client_session, dlr_name)
+    if dlr_id == None:
+        print "dlr could not be found, please verify the name"
+        return None
+
+    set_cli_credentials_dict = client_session.extract_resource_body_example ('cliSettings', 'update')
+    set_cli_credentials_dict['cliSettings']['userName'] = account
+    set_cli_credentials_dict['cliSettings']['password'] = new_pwd
+    set_pwd = client_session.update('cliSettings', uri_parameters={'edgeId': dlr_id}, request_body_dict=set_cli_credentials_dict)
+
+    return set_pwd
+
+def _dlr_set_cli_credentials(client_session, datacenter_name, vccontent, **kwargs):
+    """
+    added by ALQ. This function prepares the password update for a dlr
+    checks the password strength and if successful calls dlr_set_cli_credentials
+    """
+    if not (kwargs['dlr_name']):
+        print ('Mandatory parameters missing: dlr_name')
+        return None
+
+    account = kwargs['account']
+    dlr_name = kwargs['dlr_name']
+    dlr_pwd = kwargs['dlr_pwd']
+
+    length_error = len(dlr_pwd)<12
+    upper_case_error = re.search(r"[A-Z]", dlr_pwd) is None
+    lower_case_error = re.search(r"[a-z]", dlr_pwd) is None
+    digit_error = re.search(r"\d", dlr_pwd) is None
+    symbol_error = re.search(r"\W", dlr_pwd) is None
+
+    if length_error or upper_case_error or lower_case_error or digit_error or symbol_error:
+        print "The given password :", dlr_pwd, " does not satisfy the strengh condition which are"
+        print "length error :", length_error
+        print "upper case error :", upper_case_error
+        print "lower case error :", lower_case_error
+        print "digit_error :", digit_error
+        print "symbol_error :", symbol_error
+        return None
+
+    dlr_set_pw = dlr_set_cli_credentials(client_session, dlr_name, account, dlr_pwd)
+
+    if dlr_set_pw.get('status')== 204:
+        print "password changed successfully"
+    else:
+        print "unexpected return code while trying to change the password"
 
 def dlr_add_interface(client_session, dlr_id, interface_ls_id, interface_ip, interface_subnet):
     """
@@ -421,6 +475,7 @@ def contruct_parser(subparsers):
     add_interface:      add interface in dlr
     delete_interface:   delete interface of dlr
     list_interfaces:    list all interfaces of dlr
+    set_cli_pw:         updates the CLI credentials (mandatory -n name CMD and the new -p password)
     """)
 
     parser.add_argument("-n",
@@ -450,6 +505,9 @@ def contruct_parser(subparsers):
                         help="interface ip address in dlr")
     parser.add_argument("--interface_subnet",
                         help="interface subnet in dlr")
+    parser.add_argument("--account",
+                        help="account name. Default: admin",
+                        default="admin"),
 
     parser.set_defaults(func=_dlr_main)
 
@@ -490,6 +548,7 @@ def _dlr_main(args):
             'add_interface': _dlr_add_interface,
             'delete_interface': _dlr_del_interface,
             'list_interfaces': _dlr_list_interfaces,
+            'set_cli_pw': _dlr_set_cli_credentials
         }
         command_selector[args.command](client_session, vccontent=vccontent,
                                        dlr_name=args.name, dlr_pwd=args.dlrpassword, dlr_size=args.dlrsize,
@@ -498,7 +557,7 @@ def _dlr_main(args):
                                        uplink_ls_name=args.uplink_ls, uplink_ip=args.uplink_ip,
                                        uplink_subnet=args.uplink_subnet, uplink_dgw=args.uplink_dgw,
                                        interface_ls_name=args.interface_ls, interface_ip=args.interface_ip,
-                                       interface_subnet=args.interface_subnet,
+                                       interface_subnet=args.interface_subnet, account=args.account,
                                        verbose=args.verbose)
 
     except KeyError:
