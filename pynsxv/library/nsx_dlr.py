@@ -36,7 +36,7 @@ from argparse import RawTextHelpFormatter
 from pkg_resources import resource_filename
 
 
-def dlr_set_cli_credentials(client_session, dlr_name,account, new_pwd):
+def dlr_set_cli_credentials(client_session, dlr_name, account, new_pwd):
     """
     added by ALQ. This function updated the CLI password of a dlr
     :param client_session : An instance of an NsxClient Session
@@ -46,7 +46,8 @@ def dlr_set_cli_credentials(client_session, dlr_name,account, new_pwd):
     """
 
     dlr_id, dlr_params = dlr_read(client_session, dlr_name)
-    if dlr_id:
+
+    if dlr_id is None:
         print "dlr could not be found, please verify the name"
         return None
 
@@ -60,7 +61,7 @@ def dlr_set_cli_credentials(client_session, dlr_name,account, new_pwd):
     return set_pwd
 
 
-def _dlr_set_cli_credentials(client_session, **kwargs):
+def _dlr_set_cli_credentials(client_session, datacenter_name, vccontent, **kwargs):
     """
     added by ALQ. This function prepares the password update for a dlr
     checks the password strength and if successful calls dlr_set_cli_credentials
