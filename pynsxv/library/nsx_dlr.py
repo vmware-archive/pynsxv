@@ -57,11 +57,10 @@ def dlr_set_cli_credentials(client_session, dlr_name, account, new_pwd):
     set_pwd = client_session.update('cliSettings',
                                     uri_parameters={'edgeId': dlr_id},
                                     request_body_dict=set_cli_credentials_dict)
-
     return set_pwd
 
 
-def _dlr_set_cli_credentials(client_session, datacenter_name, vccontent, **kwargs):
+def _dlr_set_cli_credentials(client_session, **kwargs):
     """
     added by ALQ. This function prepares the password update for a dlr
     checks the password strength and if successful calls dlr_set_cli_credentials
