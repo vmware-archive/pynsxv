@@ -22,17 +22,79 @@
 # AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
 # DEALINGS IN THE SOFTWARE.”
 
-__author__ = 'yfauser'
+__author__ = 'yfauser, Andreas la Quiante'
 
 import argparse
 import ConfigParser
 import json
+import re
 from libutils import get_logical_switch, get_vdsportgroupid, connect_to_vc, check_for_parameters
 from libutils import get_datacentermoid, get_edgeresourcepoolmoid, get_edge, get_datastoremoid
 from tabulate import tabulate
 from nsxramlclient.client import NsxClient
 from argparse import RawTextHelpFormatter
 from pkg_resources import resource_filename
+
+
+def esg_set_cli_credentials(client_session, esg_name, new_pwd):
+    """
+    added by ALQ. This function updated the CLI password of an esg
+    :param client_session : An instance of an NsxClient Session
+    :param esg_name : dlr uuid
+    :param new_pwd : new password for CLI access
+    """
+    esg_id, esg_params = esg_read(client_session, esg_name)
+
+    if esg_id is None:
+        print "dlr could not be found, please verify the name"
+        return None
+
+    set_cli_credentials_dict = client_session.extract_resource_body_example('cliSettings', 'update')
+    set_cli_credentials_dict['cliSettings']['userName'] = 'admin'
+    set_cli_credentials_dict['cliSettings']['password'] = new_pwd
+    set_pwd = client_session.update('cliSettings',
+                                    uri_parameters={'edgeId': esg_id},
+                                    request_body_dict=set_cli_credentials_dict)
+    return set_pwd
+
+
+def _esg_set_cli_credentials (client_session, **kwargs):
+    """
+    added by ALQ. This function prepares the password update for an esg
+    checks the password strength and if successful calls esg_set_cli_credentials
+    :param client_session : An instance of an NsxClient Session
+    """
+
+    print "CLI PW CHANGE FUNCTION -1"
+
+    if not (kwargs['esg_name']):
+        print ('Mandatory parameters missing: esg_name')
+        return None
+
+    esg_name = kwargs['esg_name']
+    esg_pwd = kwargs['esg_pwd']
+
+    length_error = len(esg_pwd) < 12
+    upper_case_error = not re.search(r"[A-Z]", esg_pwd)
+    lower_case_error = not re.search(r"[a-z]", esg_pwd)
+    digit_error = not re.search(r"\d", esg_pwd)
+    symbol_error = not re.search(r"\W", esg_pwd)
+
+    if length_error or upper_case_error or lower_case_error or digit_error or symbol_error:
+        print "The given password :", esg_pwd, " does not satisfy the strengh condition which are"
+        print "length error :", length_error
+        print "upper case error :", upper_case_error
+        print "lower case error :", lower_case_error
+        print "digit_error :", digit_error
+        print "symbol_error :", symbol_error
+        return None
+
+    esg_set_pw = esg_set_cli_credentials(client_session, esg_name, esg_pwd)
+
+    if esg_set_pw.get('status') == 204:
+        print "password changed successfully"
+    else:
+        print "unexpected return code while trying to change the password"
 
 
 def esg_create(client_session, esg_name, esg_pwd, esg_size, datacentermoid, datastoremoid, resourcepoolid, default_pg,
@@ -745,6 +807,7 @@ def contruct_parser(subparsers):
     list_interfaces:  list all interfaces of dlr
     set_size:         Resize ESG
     set_fw_status:    Set the default firewall policy to accept or deny
+    set_cli_pw:       sets the cli credentials
     """)
 
     parser.add_argument("-n",
@@ -864,7 +927,8 @@ def _esg_main(args):
             'set_fw_status': _esg_fw_default_set,
             'add_route': _esg_route_add,
             'delete_route': _esg_route_del,
-            'list_routes': _esg_route_list
+            'list_routes': _esg_route_list,
+            'set_cli_pw': _esg_set_cli_credentials
         }
         command_selector[args.command](client_session, vccontent=vccontent, esg_name=args.esg_name,
                                        esg_pwd=args.esg_password, esg_size=args.esg_size,
