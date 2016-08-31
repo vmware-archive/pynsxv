@@ -65,8 +65,6 @@ def _esg_set_cli_credentials (client_session, **kwargs):
     :param client_session : An instance of an NsxClient Session
     """
 
-    print "CLI PW CHANGE FUNCTION -1"
-
     if not (kwargs['esg_name']):
         print ('Mandatory parameters missing: esg_name')
         return None
