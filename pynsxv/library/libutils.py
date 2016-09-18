@@ -242,6 +242,14 @@ def get_vdsportgoup_name(content, pg_id):
         return None
 
 
+def get_vdsportgroup_vms(content, pg_id):
+    portgroup_mo = get_mo_by_id(content, pg_id, VIM_TYPES['dportgroup'])
+    if portgroup_mo:
+        return portgroup_mo.vm
+    else:
+        return None
+
+
 def get_vm_by_name(content, vm_name):
     vm_mo = get_mo_by_name(content, vm_name, VIM_TYPES['vm'])
     if vm_mo:
