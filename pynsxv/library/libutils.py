@@ -44,7 +44,7 @@ VIM_TYPES = {'datacenter': [vim.Datacenter],
              'vnic': [vim.VirtualMachine]}
 
 
-def nametovalue (vccontent, client_session, name, type):
+def nametovalue(vccontent, client_session, name, type):
     if type == 'ipset':
         ipset_id = str()
         scopename = 'globalroot-0'
@@ -66,7 +66,6 @@ def nametovalue (vccontent, client_session, name, type):
         return str(macset_id)
 
     elif type == 'ls':
-        ls_id = str()
         ls_id, ls_param = get_logical_switch(client_session, name)
         return str(ls_id)
 
@@ -140,6 +139,14 @@ def get_mo_by_name(content, searchedname, vim_type):
     mo_dict = get_all_objs(content, vim_type)
     for obj in mo_dict:
         if obj.name == searchedname:
+            return obj
+    return None
+
+
+def get_mo_by_id(content, searchedid, vim_type):
+    mo_dict = get_all_objs(content, vim_type)
+    for obj in mo_dict:
+        if obj._moId == searchedid:
             return obj
     return None
 
@@ -223,6 +230,14 @@ def get_vdsportgroupid(content, switch_name):
     portgroup_mo = get_mo_by_name(content, switch_name, VIM_TYPES['dportgroup'])
     if portgroup_mo:
         return str(portgroup_mo._moId)
+    else:
+        return None
+
+
+def get_vdsportgoup_name(content, pg_id):
+    portgroup_mo = get_mo_by_id(content, pg_id, VIM_TYPES['dportgroup'])
+    if portgroup_mo:
+        return str(portgroup_mo.name)
     else:
         return None
 
