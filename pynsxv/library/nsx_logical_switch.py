@@ -27,8 +27,8 @@ __author__ = 'Dimitri Desmidt, Emanuele Mazza, Yves Fauser'
 import argparse
 import ConfigParser
 import json
-from libutils import get_scope
-from libutils import get_logical_switch
+from libutils import get_scope, connect_to_vc
+from libutils import get_logical_switch, get_vdsportgoup_name, get_vdsportgroup_vms
 from tabulate import tabulate
 from nsxramlclient.client import NsxClient
 from argparse import RawTextHelpFormatter
@@ -160,16 +160,92 @@ def _logical_switch_list_print(client_session, **kwargs):
         print tabulate(switches_list, headers=["LS name", "LS ID"], tablefmt="psql")
 
 
+def logical_switch_pg_list(client_session, lswitch_name):
+    """
+    This function returns all backing portgroups of a specific logical switch
+
+    :param client_session: An instance of an NsxClient Session
+    :type client_session: nsxramlclient.client.NsxClient
+    :param lswitch_name: The name of the logical switch to retrieve the portgroups from
+    :type lswitch_name: str
+    :return: Returns a list of portgroup moids
+    :rtype: list
+    """
+    lswitchid, lswitch_det = get_logical_switch(client_session, lswitch_name)
+
+    backing_list = client_session.normalize_list_return(lswitch_det['vdsContextWithBacking'])
+    pgid_list = [backing['backingValue'] for backing in backing_list]
+
+    return pgid_list
+
+
+def _logical_switch_pg_list(client_session, vccontent, **kwargs):
+    logical_switch_name = kwargs['logical_switch_name']
+    if not logical_switch_name:
+        print 'You must specify a logical switch name for list_pgs'
+        return None
+
+    pgid_list = logical_switch_pg_list(client_session, logical_switch_name)
+
+    portgroup_tupples = []
+    for pgid in pgid_list:
+        pgname = get_vdsportgoup_name(vccontent, pgid)
+        portgroup_tupples.append((pgname, pgid))
+
+    if kwargs['verbose']:
+        print json.dumps(portgroup_tupples)
+    else:
+        print tabulate(portgroup_tupples, headers=["Portgroup name", "Portgroup ID"], tablefmt="psql")
+
+
+def logical_switch_list_vms(client_session, vccontent, lswitch_name):
+    """
+    This function returns all VMs patched into specific logical switch
+
+    :param client_session: An instance of an NsxClient Session
+    :type client_session: nsxramlclient.client.NsxClient
+    :param lswitch_name: The name of the logical switch to retrieve the VMs from
+    :type lswitch_name: str
+    :return: Returns a list of tupples, the first item being the VM name, the second being the vnic moid
+    :rtype: list
+    """
+    pgids = logical_switch_pg_list(client_session, lswitch_name)
+
+    vm_tupple = []
+    for pgid in pgids:
+        vm_mos = get_vdsportgroup_vms(vccontent, pgid)
+        for vm_mo in vm_mos:
+            vm_tupple.append((vm_mo.name, vm_mo._moId))
+
+    return vm_tupple
+
+
+def _logical_switch_list_vms(client_session, vccontent, **kwargs):
+    logical_switch_name = kwargs['logical_switch_name']
+    if not logical_switch_name:
+        print 'You must specify a logical switch name for list_vms'
+        return None
+
+    vm_tupples = logical_switch_list_vms(client_session, vccontent, logical_switch_name)
+
+    if kwargs['verbose']:
+        print json.dumps(vm_tupples)
+    else:
+        print tabulate(vm_tupples, headers=["VM name", "VM ID"], tablefmt="psql")
+
+
 def contruct_parser(subparsers):
     parser = subparsers.add_parser('lswitch', description="Functions for logical switches",
                                    help="Functions for logical switches",
                                    formatter_class=RawTextHelpFormatter)
 
     parser.add_argument("command", help="""
-    create: create a new logical switch
-    read:   return the virtual wire id of a logical switch
-    delete: delete a logical switch"
-    list:   return a list of all logical switches
+    create:   create a new logical switch
+    read:     return the virtual wire id of a logical switch
+    delete:   delete a logical switch"
+    list:     return a list of all logical switches
+    list_pgs: return all backing portgroups of a logical switch
+    list_vms: return all VMs patched into a logical switch
     """)
 
     parser.add_argument("-t",
@@ -205,17 +281,25 @@ def _lswitch_main(args):
     client_session = NsxClient(nsxramlfile, config.get('nsxv', 'nsx_manager'),
                                config.get('nsxv', 'nsx_username'), config.get('nsxv', 'nsx_password'), debug=debug)
 
+    if args.command in ['list_pgs', 'list_vms']:
+        vccontent = connect_to_vc(config.get('vcenter', 'vcenter'), config.get('vcenter', 'vcenter_user'),
+                                  config.get('vcenter', 'vcenter_passwd'))
+    else:
+        vccontent = None
+
     try:
         command_selector = {
             'list': _logical_switch_list_print,
             'create': _logical_switch_create,
             'delete': _logical_switch_delete,
             'read': _logical_switch_read,
+            'list_pgs': _logical_switch_pg_list,
+            'list_vms': _logical_switch_list_vms
             }
-        command_selector[args.command](client_session, transport_zone=transport_zone,
+        command_selector[args.command](client_session, vccontent=vccontent, transport_zone=transport_zone,
                                        logical_switch_name=args.name, verbose=args.verbose)
-    except KeyError:
-        print('Unknown command')
+    except KeyError as e:
+        print('Unknown command {}'.format(e))
 
 
 def main():
