@@ -28,7 +28,7 @@ import argparse
 import ConfigParser
 import json
 import re
-from libutils import get_logical_switch, get_vdsportgroupid, connect_to_vc
+from libutils import get_logical_switch, get_vdsportgroupid, connect_to_vc, check_for_parameters
 from libutils import get_datacentermoid, get_edgeresourcepoolmoid, get_edge, get_datastoremoid
 from tabulate import tabulate
 from nsxramlclient.client import NsxClient
@@ -469,6 +469,77 @@ def _dlr_list_print(client_session, **kwargs):
         print tabulate(dist_lr_list, headers=["DLR name", "DLR ID"], tablefmt="psql")
 
 
+def dlr_check_ha_status(client_session, dlr_name):
+    """
+    This function checks the Edge HA status
+    :param client_session: An instance of an NsxClient Session
+    :param dlr_name: The name of the DLR
+    :return: Return HA status
+    """
+    dlr_id, dlr_params = get_edge(client_session, dlr_name)
+    if not dlr_id:
+        return "DLR Not Found"
+
+    dlr_ha_status = client_session.read('highAvailability', uri_parameters={'edgeId': dlr_id})['body']
+    if dlr_ha_status['highAvailability']['enabled'] == 'false':
+        return False
+    elif dlr_ha_status['highAvailability']['enabled'] == 'true':
+        return True
+
+def _dlr_check_ha_status(client_session, **kwargs):
+    needed_params = ['dlr_name']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+    result = dlr_check_ha_status(client_session, kwargs['dlr_name'])
+    if result == "DLR Not Found":
+        print 'DLR {} Not Found'.format(kwargs['dlr_name'])
+    else:
+        print 'DLR {} HA is set to {}'.format(kwargs['dlr_name'], result)
+
+
+def dlr_configure_ha(client_session, dlr_name, ha_status, ha_deadtime=None):
+    """
+    This function updates HA value of the Edge
+    :param client_session: An instance of an NsxClient Session
+    :param dlr_name: The name of the DLR
+    :param ha_status: The HA value (true or false)
+    :param ha_deadtime: The HA dead time
+    :return: Return HA status
+    """
+
+    if not ha_deadtime:
+        ha_deadtime = '15'
+
+    dlr_id, dlr_params = get_edge(client_session, dlr_name)
+    if not dlr_id:
+        return "DLR Not Found"
+
+    dlr_ha_body = client_session.extract_resource_body_example('highAvailability', 'update')
+    dlr_ha_body['highAvailability']['declareDeadTime'] = ha_deadtime
+    dlr_ha_body['highAvailability']['enabled'] = ha_status
+
+    result = client_session.update('highAvailability', uri_parameters={'edgeId': dlr_id},
+                                   request_body_dict=dlr_ha_body)
+
+    if result['status'] == 204:
+        return True
+    else:
+        return False
+
+def _dlr_configure_ha(client_session, **kwargs):
+    needed_params = ['dlr_name', 'ha_status', 'ha_deadtime']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+    result = dlr_configure_ha(client_session, kwargs['dlr_name'], kwargs['ha_status'], kwargs['ha_deadtime'])
+    if result:
+        print 'DLR {} HA is set to {}'.format(kwargs['dlr_name'], format(kwargs['ha_status']))
+    else:
+        print 'DLR {} HA set to {} FAILED'.format(kwargs['dlr_name'], format(kwargs['ha_status']))
+
+
+
 def contruct_parser(subparsers):
     parser = subparsers.add_parser('dlr', description="nsxv function for dlr '%(prog)s @params.conf'.",
                                    help="Functions for distributed logical routers",
@@ -484,17 +555,19 @@ def contruct_parser(subparsers):
     delete_interface:   delete interface of dlr
     list_interfaces:    list all interfaces of dlr
     set_cli_pw:         updates the CLI credentials (mandatory -n name CMD and the new -p password)
+    get_ha:           Get Edge HA status
+    set_ha:           Set Edge HA status (true|false)
     """)
 
     parser.add_argument("-n",
-                        "--name",
+                        "--dlr_name",
                         help="dlr name")
     parser.add_argument("-p",
                         "--dlrpassword",
                         help="dlr admin password",
                         default="VMware1!VMware1!")
     parser.add_argument("-s",
-                        "--dlrsize",
+                        "--dlr_size",
                         help="dlr size (compact, large, quadlarge, xlarge)",
                         default="compact")
     parser.add_argument("--ha_ls",
@@ -515,7 +588,14 @@ def contruct_parser(subparsers):
                         help="interface subnet in dlr")
     parser.add_argument("--account",
                         help="account name. Default: admin",
-                        default="admin"),
+                        default="admin")
+    parser.add_argument("-ha",
+                        "--ha_status",
+                        help="Set DLR High-Availability status")
+    parser.add_argument("-hd",
+                        "--ha_deadtime",
+                        help="Set DLR High-Availability dead time, default is 15 secs",
+                        default="15"),
 
     parser.set_defaults(func=_dlr_main)
 
@@ -556,16 +636,19 @@ def _dlr_main(args):
             'add_interface': _dlr_add_interface,
             'delete_interface': _dlr_del_interface,
             'list_interfaces': _dlr_list_interfaces,
-            'set_cli_pw': _dlr_set_cli_credentials
+            'set_cli_pw': _dlr_set_cli_credentials,
+            'get_ha': _dlr_check_ha_status,
+            'set_ha': _dlr_configure_ha
         }
         command_selector[args.command](client_session, vccontent=vccontent,
-                                       dlr_name=args.name, dlr_pwd=args.dlrpassword, dlr_size=args.dlrsize,
+                                       dlr_name=args.dlr_name, dlr_pwd=args.dlrpassword, dlr_size=args.dlr_size,
                                        datacenter_name=datacenter_name, edge_datastore=edge_datastore,
                                        edge_cluster=edge_cluster, ha_ls_name=args.ha_ls,
                                        uplink_ls_name=args.uplink_ls, uplink_ip=args.uplink_ip,
                                        uplink_subnet=args.uplink_subnet, uplink_dgw=args.uplink_dgw,
                                        interface_ls_name=args.interface_ls, interface_ip=args.interface_ip,
                                        interface_subnet=args.interface_subnet, account=args.account,
+                                       ha_status=args.ha_status, ha_deadtime=args.ha_deadtime,
                                        verbose=args.verbose)
 
     except KeyError:

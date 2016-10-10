@@ -95,8 +95,8 @@ def _esg_set_cli_credentials (client_session, **kwargs):
         print "unexpected return code while trying to change the password"
 
 
-def esg_create(client_session, esg_name, esg_pwd, esg_size, datacentermoid, datastoremoid, resourcepoolid, default_pg,
-               esg_username=None, esg_remote_access=None):
+def esg_create(client_session, esg_name, datacentermoid, datastoremoid, resourcepoolid, default_pg,
+               esg_pwd=None, esg_size=None, esg_username=None, esg_remote_access=None):
     """
     This function creates a new Edge Services Gateway
     :param client_session: An instance of an NsxClient Session
@@ -115,6 +115,10 @@ def esg_create(client_session, esg_name, esg_pwd, esg_size, datacentermoid, data
     """
     esg_create_dict = client_session.extract_resource_body_example('nsxEdges', 'create')
 
+    if not esg_pwd:
+        esg_username = 'VMware1!VMware1!'
+    if not esg_size:
+        esg_username = 'compact'
     if not esg_username:
         esg_username = 'admin'
     if not esg_remote_access:
@@ -153,8 +157,9 @@ def _esg_create(client_session, vccontent, **kwargs):
     resourcepoolid = get_edgeresourcepoolmoid(vccontent, kwargs['edge_cluster'])
     portgroupmoid = get_vdsportgroupid(vccontent, kwargs['portgroup'])
 
-    esg_id, esg_params = esg_create(client_session, kwargs['esg_name'], kwargs['esg_pwd'], kwargs['esg_size'],
+    esg_id, esg_params = esg_create(client_session, kwargs['esg_name'],
                                     datacentermoid, datastoremoid, resourcepoolid, portgroupmoid,
+                                    esg_pwd=kwargs['esg_pwd'], esg_size=kwargs['esg_size'],
                                     esg_remote_access=kwargs['esg_remote_access'])
     if kwargs['verbose'] and esg_id:
         edge_id, esg_details = esg_read(client_session, esg_id)
@@ -785,27 +790,168 @@ def _esg_fw_default_set(client_session, **kwargs):
         print 'Setting default firewall policy on Edge Services Router {} failed'.format(kwargs['esg_name'])
 
 
+def edge_check_ha_status(client_session, esg_name):
+    """
+    This function checks the Edge HA status
+    :param client_session: An instance of an NsxClient Session
+    :param esg_name: The name of the ESG
+    :return: Return HA status
+    """
+    esg_id, esg_params = get_edge(client_session, esg_name)
+    if not esg_id:
+        return "Edge Not Found"
+
+    edge_ha_status = client_session.read('highAvailability', uri_parameters={'edgeId': esg_id})['body']
+    if edge_ha_status['highAvailability']['enabled'] == 'false':
+        return False
+    elif edge_ha_status['highAvailability']['enabled'] == 'true':
+        return True
+
+def _edge_check_ha_status(client_session, **kwargs):
+    needed_params = ['esg_name']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+    result = edge_check_ha_status(client_session, kwargs['esg_name'])
+    if result == "Edge Not Found":
+        print 'Edge {} Not Found'.format(kwargs['esg_name'])
+    else:
+        print 'Edge {} HA is set to {}'.format(kwargs['esg_name'], result)
+
+
+def edge_configure_ha(client_session, esg_name, ha_status, ha_deadtime=None):
+    """
+    This function updates HA value of the Edge
+    :param client_session: An instance of an NsxClient Session
+    :param esg_name: The name of the ESG
+    :param ha_status: The HA value (true or false)
+    :param ha_deadtime: The HA dead time
+    :return: Return HA status
+    """
+
+    if not ha_deadtime:
+        ha_deadtime = '15'
+
+    esg_id, esg_params = get_edge(client_session, esg_name)
+    if not esg_id:
+        return "Edge Not Found"
+
+    edge_ha_body = client_session.extract_resource_body_example('highAvailability', 'update')
+    edge_ha_body['highAvailability']['declareDeadTime'] = ha_deadtime
+    edge_ha_body['highAvailability']['enabled'] = ha_status
+
+    result = client_session.update('highAvailability', uri_parameters={'edgeId': esg_id},
+                                   request_body_dict=edge_ha_body)
+
+    if result['status'] == 204:
+        return True
+    else:
+        return False
+
+def _edge_configure_ha(client_session, **kwargs):
+    needed_params = ['esg_name', 'ha_status', 'ha_deadtime']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+    result = edge_configure_ha(client_session, kwargs['esg_name'], kwargs['ha_status'], kwargs['ha_deadtime'])
+    if result:
+        print 'Edge {} HA is set to {}'.format(kwargs['esg_name'], format(kwargs['ha_status']))
+    else:
+        print 'Edge {} HA set to {} FAILED'.format(kwargs['esg_name'], format(kwargs['ha_status']))
+
+def edge_check_ha_status(client_session, esg_name):
+    """
+    This function checks the Edge HA status
+    :param client_session: An instance of an NsxClient Session
+    :param esg_name: The name of the ESG
+    :return: Return HA status
+    """
+    esg_id, esg_params = get_edge(client_session, esg_name)
+    if not esg_id:
+        return "Edge Not Found"
+
+    edge_ha_status = client_session.read('highAvailability', uri_parameters={'edgeId': esg_id})['body']
+    if edge_ha_status['highAvailability']['enabled'] == 'false':
+        return False
+    elif edge_ha_status['highAvailability']['enabled'] == 'true':
+        return True
+
+def _edge_check_ha_status(client_session, **kwargs):
+    needed_params = ['esg_name']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+    result = edge_check_ha_status(client_session, kwargs['esg_name'])
+    if result == "Edge Not Found":
+        print 'Edge {} Not Found'.format(kwargs['esg_name'])
+    else:
+        print 'Edge {} HA is set to {}'.format(kwargs['esg_name'], result)
+
+
+def edge_configure_ha(client_session, esg_name, ha_status, ha_deadtime=None):
+    """
+    This function updates HA value of the Edge
+    :param client_session: An instance of an NsxClient Session
+    :param esg_name: The name of the ESG
+    :param ha_status: The HA value (true or false)
+    :param ha_deadtime: The HA dead time
+    :return: Return HA status
+    """
+
+    if not ha_deadtime:
+        ha_deadtime = '15'
+
+    esg_id, esg_params = get_edge(client_session, esg_name)
+    if not esg_id:
+        return "Edge Not Found"
+
+    edge_ha_body = client_session.extract_resource_body_example('highAvailability', 'update')
+    edge_ha_body['highAvailability']['declareDeadTime'] = ha_deadtime
+    edge_ha_body['highAvailability']['enabled'] = ha_status
+
+    result = client_session.update('highAvailability', uri_parameters={'edgeId': esg_id},
+                                   request_body_dict=edge_ha_body)
+
+    if result['status'] == 204:
+        return True
+    else:
+        return False
+
+def _edge_configure_ha(client_session, **kwargs):
+    needed_params = ['esg_name', 'ha_status', 'ha_deadtime']
+    if not check_for_parameters(needed_params, kwargs):
+        return None
+
+    result = edge_configure_ha(client_session, kwargs['esg_name'], kwargs['ha_status'], kwargs['ha_deadtime'])
+    if result:
+        print 'Edge {} HA is set to {}'.format(kwargs['esg_name'], format(kwargs['ha_status']))
+    else:
+        print 'Edge {} HA set to {} FAILED'.format(kwargs['esg_name'], format(kwargs['ha_status']))
+
+
 def contruct_parser(subparsers):
     parser = subparsers.add_parser('esg', description="nsxv function for edge services gateway'%(prog)s @params.conf'.",
                                    help="Functions for edge services gateways",
                                    formatter_class=RawTextHelpFormatter)
     parser.add_argument("command", help="""
-    create:           create a new ESG
-    read:             return the id of a ESG
-    delete:           delete an ESG
-    list:             return a list of all ESG
-    set_dgw:          set ESG default gateway ip address
-    del_dgw:          delete ESG default gateway ip address
-    read_dgw:         show the configured default gateway
+    create:           Create a new ESG
+    read:             Return the id of a ESG
+    delete:           Delete an ESG
+    list:             Return a list of all ESG
+    set_dgw:          Set ESG default gateway ip address
+    del_dgw:          Delete ESG default gateway ip address
+    read_dgw:         Show the configured default gateway
     add_route:        Add a static route to an ESG
     delete_route:     Delete a static route from an ESG
     list_routes:      List all configured static routes on an ESG
     cfg_interface:    Configure IP and other interface details
-    clear_interface:  remove all configuration from an interface
-    list_interfaces:  list all interfaces of dlr
+    clear_interface:  Remove all configuration from an interface
+    list_interfaces:  List all interfaces of dlr
     set_size:         Resize ESG
     set_fw_status:    Set the default firewall policy to accept or deny
-    set_cli_pw:       sets the cli credentials
+    set_cli_pw:       Sets the cli credentials
+    get_ha:           Get Edge HA status
+    set_ha:           Set Edge HA status (true|false)
     """)
 
     parser.add_argument("-n",
@@ -870,6 +1016,13 @@ def contruct_parser(subparsers):
     parser.add_argument("-cl",
                         "--edge_cluster",
                         help="vCenter Cluster or Ressource Pool to deploy ESGs in, default is taken from INI File")
+    parser.add_argument("-ha",
+                        "--ha_status",
+                        help="Set Edge High-Availability status")
+    parser.add_argument("-hd",
+                        "--ha_deadtime",
+                        help="Set Edge High-Availability dead time, default is 15 secs",
+                        default="15"),
 
     parser.set_defaults(func=_esg_main)
 
@@ -926,7 +1079,9 @@ def _esg_main(args):
             'add_route': _esg_route_add,
             'delete_route': _esg_route_del,
             'list_routes': _esg_route_list,
-            'set_cli_pw': _esg_set_cli_credentials
+            'set_cli_pw': _esg_set_cli_credentials,
+            'get_ha': _edge_check_ha_status,
+            'set_ha': _edge_configure_ha
         }
         command_selector[args.command](client_session, vccontent=vccontent, esg_name=args.esg_name,
                                        esg_pwd=args.esg_password, esg_size=args.esg_size,
@@ -937,7 +1092,9 @@ def _esg_main(args):
                                        vnic_state=args.vnic_state, vnic_ip=args.vnic_ip, vnic_mask=args.vnic_mask,
                                        route_net=args.route_net, fw_default=args.fw_default,
                                        esg_remote_access=args.esg_remote_access,
-                                       vnic_secondary_ips=args.vnic_secondary_ips, verbose=args.verbose)
+                                       vnic_secondary_ips=args.vnic_secondary_ips,
+                                       ha_status=args.ha_status, ha_deadtime=args.ha_deadtime,
+                                       verbose=args.verbose)
     except KeyError as e:
         print('Unknown command: {}'.format(e))
 
