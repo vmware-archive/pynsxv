@@ -541,7 +541,7 @@ def _dlr_configure_ha(client_session, **kwargs):
 
 
 def contruct_parser(subparsers):
-    parser = subparsers.add_parser('dlr', description="nsxv function for dlr '%(prog)s @params.conf'.",
+    parser = subparsers.add_parser('dlr', description="nsxv function for Distributed Logical Routers",
                                    help="Functions for distributed logical routers",
                                    formatter_class=RawTextHelpFormatter)
     parser.add_argument("command", help="""

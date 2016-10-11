@@ -930,7 +930,7 @@ def _edge_configure_ha(client_session, **kwargs):
 
 
 def contruct_parser(subparsers):
-    parser = subparsers.add_parser('esg', description="nsxv function for edge services gateway'%(prog)s @params.conf'.",
+    parser = subparsers.add_parser('esg', description="nsxv function for Edge Services Gateways",
                                    help="Functions for edge services gateways",
                                    formatter_class=RawTextHelpFormatter)
     parser.add_argument("command", help="""
