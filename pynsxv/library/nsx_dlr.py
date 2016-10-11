@@ -97,11 +97,11 @@ def _dlr_set_cli_credentials(client_session, **kwargs):
         print "unexpected return code while trying to change the password"
 
 
-def dlr_add_interface(client_session, dlr_id, interface_ls_id, interface_ip, interface_subnet):
+def dlr_add_interface(client_session, dlr_id, interface_con_id, interface_ip, interface_subnet):
     """
     This function adds an interface gw to one dlr
     :param dlr_id: dlr uuid
-    :param interface_ls_id: new interface logical switch
+    :param interface_con_id: new interface logical switch
     :param interface_ip: new interface ip address
     :param interface_subnet: new interface subnet
     """
@@ -113,7 +113,7 @@ def dlr_add_interface(client_session, dlr_id, interface_ls_id, interface_ip, int
     dlr_interface_dict['interfaces']['interface']['addressGroups']['addressGroup']['primaryAddress'] = interface_ip
     dlr_interface_dict['interfaces']['interface']['addressGroups']['addressGroup']['subnetMask'] = interface_subnet
     dlr_interface_dict['interfaces']['interface']['isConnected'] = "True"
-    dlr_interface_dict['interfaces']['interface']['connectedToId'] = interface_ls_id
+    dlr_interface_dict['interfaces']['interface']['connectedToId'] = interface_con_id
 
     dlr_interface = client_session.create('interfaces', uri_parameters={'edgeId': dlr_id},
                                           query_parameters_dict={'action': "patch"},
@@ -122,32 +122,32 @@ def dlr_add_interface(client_session, dlr_id, interface_ls_id, interface_ip, int
 
 
 def _dlr_add_interface(client_session, vccontent, **kwargs):
-    if not (kwargs['dlr_name'] and kwargs['interface_ls_name'] and kwargs['interface_ip']
+    if not (kwargs['dlr_name'] and kwargs['interface_con_name'] and kwargs['interface_ip']
             and kwargs['interface_subnet']):
-        print ('Mandatory parameters missing, [-n NAME] [--interface_ls INTERFACE_LS] [--interface_ip INTERFACE_IP] '
+        print ('Mandatory parameters missing, [-n NAME] [--interface_con INTERFACE_CON] [--interface_ip INTERFACE_IP] '
                '[--interface_subnet INTERFACE_SUBNET]')
         return None
     dlr_name = kwargs['dlr_name']
-    interface_ls_name = kwargs['interface_ls_name']
+    interface_con_name = kwargs['interface_con_name']
     interface_ip = kwargs['interface_ip']
     interface_subnet = kwargs['interface_subnet']
 
     dlr_id, dlr_params = dlr_read(client_session, dlr_name)
     if dlr_id:
-        # find interface_ls_id in vDS port groups or NSX logical switches
-        interface_ls_id = get_vdsportgroupid(vccontent, interface_ls_name)
-        if not interface_ls_id:
-            interface_ls_id, interface_ls_params = get_logical_switch(client_session, interface_ls_name)
-            if not interface_ls_id:
+        # find interface_con_id in vDS port groups or NSX logical switches
+        interface_con_id = get_vdsportgroupid(vccontent, interface_con_name)
+        if not interface_con_id:
+            interface_con_id, interface_con_params = get_logical_switch(client_session, interface_con_name)
+            if not interface_con_id:
                 print 'ERROR: DLR interface logical switch {} does NOT exist as VDS port ' \
-                      'group nor NSX logical switch'.format(interface_ls_name)
+                      'group nor NSX logical switch'.format(interface_con_name)
                 return None
 
-        dlr_add_int = dlr_add_interface(client_session, dlr_id, interface_ls_id, interface_ip, interface_subnet)
+        dlr_add_int = dlr_add_interface(client_session, dlr_id, interface_con_id, interface_ip, interface_subnet)
         if dlr_add_int and kwargs['verbose']:
             print json.dumps(dlr_add_int)
         else:
-            print 'Interface {} added to dlr_name {} / dlr_id {}'.format(interface_ls_name, dlr_name, dlr_id)
+            print 'Interface {} added to dlr_name {} / dlr_id {}'.format(interface_con_name, dlr_name, dlr_id)
 
 
 def dlr_del_interface(client_session, dlr_id, interface_id):
@@ -163,26 +163,26 @@ def dlr_del_interface(client_session, dlr_id, interface_id):
 
 
 def _dlr_del_interface(client_session, **kwargs):
-    if not (kwargs['dlr_name'] and kwargs['interface_ls_name']):
-        print ('Mandatory parameters missing, [-n NAME] [--interface_ls INTERFACE_LS]')
+    if not (kwargs['dlr_name'] and kwargs['interface_con_name']):
+        print ('Mandatory parameters missing, [-n NAME] [--interface_con INTERFACE_CON]')
         return None
     dlr_name = kwargs['dlr_name']
-    interface_ls_name = kwargs['interface_ls_name']
+    interface_con_name = kwargs['interface_con_name']
 
     dlr_id, dlr_params = dlr_read(client_session, dlr_name)
 
     interface_id = ""
     if dlr_id:
-        # find interface_id for interface_ls_name
+        # find interface_id for interface_con_name
         all_int = client_session.read('interfaces', uri_parameters={'edgeId': dlr_id})
         for interface in all_int['body']['interfaces']['interface']:
-            if interface['connectedToName'] == interface_ls_name:
+            if interface['connectedToName'] == interface_con_name:
                 interface_id = interface['index']
         if interface_id == "":
-            print 'ERROR: DLR interface logical switch {} does NOT exist DLR {}'.format(interface_ls_name, dlr_name)
+            print 'ERROR: DLR interface logical switch {} does NOT exist DLR {}'.format(interface_con_name, dlr_name)
         else:
             dlr_del_interface(client_session, dlr_id, interface_id)
-            print 'DLR interface logical switch {} deleted on DLR {}'.format(interface_ls_name, dlr_name)
+            print 'DLR interface logical switch {} deleted on DLR {}'.format(interface_con_name, dlr_name)
 
 
 def dlr_list_interfaces(client_session, dlr_id):
@@ -221,7 +221,7 @@ def _dlr_list_interfaces(client_session, **kwargs):
 
 def dlr_create(client_session, dlr_name, dlr_pwd, dlr_size,
                datacentermoid, datastoremoid, resourcepoolid,
-               ha_ls_id, uplink_ls_id, uplink_ip, uplink_subnet, uplink_dgw):
+               ha_con_id, uplink_con_id, uplink_ip, uplink_subnet, uplink_dgw):
     """
     This function will create a new dlr in NSX
     :param client_session: An instance of an NsxClient Session
@@ -231,8 +231,8 @@ def dlr_create(client_session, dlr_name, dlr_pwd, dlr_size,
     :param datacentermoid: The vCenter DataCenter ID where dlr control vm will be deployed
     :param datastoremoid: The vCenter datastore ID where dlr control vm will be deployed
     :param resourcepoolid: The vCenter Cluster where dlr control vm will be deployed
-    :param ha_ls_id: New dlr ha logical switch id or vds port group
-    :param uplink_ls_id: New dlr uplink logical switch id or vds port group
+    :param ha_con_id: New dlr ha logical switch id or vds port group
+    :param uplink_con_id: New dlr uplink logical switch id or vds port group
     :param uplink_ip: New dlr uplink ip@
     :param uplink_subnet: New dlr uplink subnet
     :param uplink_dgw: New dlr default gateway
@@ -252,9 +252,9 @@ def dlr_create(client_session, dlr_name, dlr_pwd, dlr_size,
     dlr_create_dict['edge']['datacenterMoid'] = datacentermoid
     dlr_create_dict['edge']['appliances']['appliance']['datastoreId'] = datastoremoid
     dlr_create_dict['edge']['appliances']['appliance']['resourcePoolId'] = resourcepoolid
-    dlr_create_dict['edge']['mgmtInterface'] = {'connectedToId': ha_ls_id}
+    dlr_create_dict['edge']['mgmtInterface'] = {'connectedToId': ha_con_id}
     dlr_create_dict['edge']['interfaces'] = {'interface': {'type': "uplink", 'isConnected': "True",
-                                                           'connectedToId': uplink_ls_id,
+                                                           'connectedToId': uplink_con_id,
                                                            'addressGroups': {
                                                                'addressGroup': {'primaryAddress': uplink_ip,
                                                                                 'subnetMask': uplink_subnet}}}}
@@ -273,10 +273,10 @@ def dlr_create(client_session, dlr_name, dlr_pwd, dlr_size,
 
 def _dlr_create(client_session, vccontent, datacenter_name, edge_datastore, edge_cluster, **kwargs):
     if not (kwargs['dlr_name'] and kwargs['dlr_pwd'] and kwargs['dlr_size'] and datacenter_name
-            and kwargs['ha_ls_name'] and kwargs['uplink_ls_name'] and kwargs['uplink_ip'] and kwargs['uplink_subnet']
+            and kwargs['ha_con_name'] and kwargs['uplink_con_name'] and kwargs['uplink_ip'] and kwargs['uplink_subnet']
             and edge_datastore and edge_cluster):
         print ('You are missing a mandatory parameter, those are [-n NAME] [-p DLRPASSWORD] [-s DLRSIZE] '
-               '[--ha_ls HA_LS] [--uplink_ls UPLINK_LS] [--uplink_ip UPLINK_IP] [--uplink_subnet UPLINK_SUBNET] '
+               '[--ha_con ha_con] [--uplink_con UPLINK_CON] [--uplink_ip UPLINK_IP] [--uplink_subnet UPLINK_SUBNET] '
                'and the ini file options datacenter_name,edge_datastore and edge_cluster')
         return None
     dlr_name = kwargs['dlr_name']
@@ -287,30 +287,30 @@ def _dlr_create(client_session, vccontent, datacenter_name, edge_datastore, edge
     datastoremoid = get_datastoremoid(vccontent, edge_datastore)
     resourcepoolid = get_edgeresourcepoolmoid(vccontent, edge_cluster)
 
-    ha_ls_name = kwargs['ha_ls_name']
-    # find ha_ls_id in vDS port groups or NSX logical switches
-    ha_ls_id = get_vdsportgroupid(vccontent, ha_ls_name)
-    if not ha_ls_id:
-        ha_ls_id, ha_ls_switch_params = get_logical_switch(client_session, ha_ls_name)
-        if not ha_ls_id:
-            print 'ERROR: DLR HA switch {} does NOT exist as VDS port group nor NSX logical switch'.format(ha_ls_name)
+    ha_con_name = kwargs['ha_con_name']
+    # find ha_con_id in vDS port groups or NSX logical switches
+    ha_con_id = get_vdsportgroupid(vccontent, ha_con_name)
+    if not ha_con_id:
+        ha_con_id, ha_con_switch_params = get_logical_switch(client_session, ha_con_name)
+        if not ha_con_id:
+            print 'ERROR: DLR HA switch {} does NOT exist as VDS port group nor NSX logical switch'.format(ha_con_name)
             return None
 
-    uplink_ls_name = kwargs['uplink_ls_name']
+    uplink_con_name = kwargs['uplink_con_name']
     uplink_ip = kwargs['uplink_ip']
     uplink_subnet = kwargs['uplink_subnet']
     uplink_dgw = kwargs['uplink_dgw']
-    # find uplink_ls_id in vDS port groups or NSX logical switches
-    uplink_ls_id = get_vdsportgroupid(vccontent, uplink_ls_name)
-    if not uplink_ls_id:
-        uplink_ls_id, uplink_ls_switch_params = get_logical_switch(client_session, uplink_ls_name)
-        if not uplink_ls_id:
+    # find uplink_con_id in vDS port groups or NSX logical switches
+    uplink_con_id = get_vdsportgroupid(vccontent, uplink_con_name)
+    if not uplink_con_id:
+        uplink_con_id, uplink_con_switch_params = get_logical_switch(client_session, uplink_con_name)
+        if not uplink_con_id:
             print 'ERROR: DLR uplink switch {} does NOT exist as VDS port group ' \
-                  'nor NSX logical switch'.format(uplink_ls_name)
+                  'nor NSX logical switch'.format(uplink_con_name)
             return None
 
     dlr_id, dlr_params = dlr_create(client_session, dlr_name, dlr_pwd, dlr_size, datacentermoid, datastoremoid,
-                                    resourcepoolid, ha_ls_id, uplink_ls_id, uplink_ip, uplink_subnet, uplink_dgw)
+                                    resourcepoolid, ha_con_id, uplink_con_id, uplink_ip, uplink_subnet, uplink_dgw)
     if kwargs['verbose']:
         print dlr_params
     else:
@@ -570,18 +570,18 @@ def contruct_parser(subparsers):
                         "--dlr_size",
                         help="dlr size (compact, large, quadlarge, xlarge)",
                         default="compact")
-    parser.add_argument("--ha_ls",
-                        help="dlr ha LS name")
-    parser.add_argument("--uplink_ls",
-                        help="dlr uplink logical switch name")
+    parser.add_argument("--ha_con",
+                        help="dlr ha DVS_portgroup_name or Logical_Switch_name")
+    parser.add_argument("--uplink_con",
+                        help="dlr uplink DVS_portgroup_name or Logical_Switch_name")
     parser.add_argument("--uplink_ip",
                         help="dlr uplink ip address")
     parser.add_argument("--uplink_subnet",
                         help="dlr uplink subnet")
     parser.add_argument("--uplink_dgw",
                         help="dlr uplink default gateway")
-    parser.add_argument("--interface_ls",
-                        help="interface logical switch in dlr")
+    parser.add_argument("--interface_con",
+                        help="interface connection in dlr (DVS_portgroup_name or Logical_Switch_name)")
     parser.add_argument("--interface_ip",
                         help="interface ip address in dlr")
     parser.add_argument("--interface_subnet",
@@ -666,10 +666,10 @@ def _dlr_main(args):
         command_selector[args.command](client_session, vccontent=vccontent,
                                        dlr_name=args.dlr_name, dlr_pwd=args.dlrpassword, dlr_size=args.dlr_size,
                                        datacenter_name=datacenter_name, edge_datastore=edge_datastore,
-                                       edge_cluster=edge_cluster, ha_ls_name=args.ha_ls,
-                                       uplink_ls_name=args.uplink_ls, uplink_ip=args.uplink_ip,
+                                       edge_cluster=edge_cluster, ha_con_name=args.ha_con,
+                                       uplink_con_name=args.uplink_con, uplink_ip=args.uplink_ip,
                                        uplink_subnet=args.uplink_subnet, uplink_dgw=args.uplink_dgw,
-                                       interface_ls_name=args.interface_ls, interface_ip=args.interface_ip,
+                                       interface_con_name=args.interface_con, interface_ip=args.interface_ip,
                                        interface_subnet=args.interface_subnet, account=args.account,
                                        ha_status=args.ha_status, ha_deadtime=args.ha_deadtime,
                                        verbose=args.verbose)
