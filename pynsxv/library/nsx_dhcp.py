@@ -679,8 +679,12 @@ def _dhcp_main(args):
     client_session = NsxClient(nsxramlfile, config.get('nsxv', 'nsx_manager'),
                                config.get('nsxv', 'nsx_username'), config.get('nsxv', 'nsx_password'), debug=debug)
 
-    vccontent = connect_to_vc(config.get('vcenter', 'vcenter'), config.get('vcenter', 'vcenter_user'),
-                              config.get('vcenter', 'vcenter_passwd'))
+    if args.command in ['add_vm_binding']:
+        vccontent = connect_to_vc(config.get('vcenter', 'vcenter'), config.get('vcenter', 'vcenter_user'),
+                                  config.get('vcenter', 'vcenter_passwd'))
+    else:
+        vccontent = None
+
     try:
         command_selector = {
             'enable_server': _enable_server,
