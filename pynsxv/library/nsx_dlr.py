@@ -589,6 +589,15 @@ def contruct_parser(subparsers):
     parser.add_argument("--account",
                         help="account name. Default: admin",
                         default="admin")
+    parser.add_argument("-dc",
+                        "--datacenter_name",
+                        help="vCenter DC name to deploy ESGs in, default is taken from INI File")
+    parser.add_argument("-ds",
+                        "--edge_datastore",
+                        help="Datastore name to deploy ESGs in, default is taken from INI File")
+    parser.add_argument("-cl",
+                        "--edge_cluster",
+                        help="vCenter Cluster or Ressource Pool to deploy ESGs in, default is taken from INI File")
     parser.add_argument("-ha",
                         "--ha_status",
                         help="Set DLR High-Availability status")
@@ -618,12 +627,26 @@ def _dlr_main(args):
     client_session = NsxClient(nsxramlfile, config.get('nsxv', 'nsx_manager'),
                                config.get('nsxv', 'nsx_username'), config.get('nsxv', 'nsx_password'), debug=debug)
 
-    vccontent = connect_to_vc(config.get('vcenter', 'vcenter'), config.get('vcenter', 'vcenter_user'),
-                              config.get('vcenter', 'vcenter_passwd'))
+    if args.datacenter_name:
+        datacenter_name = args.datacenter_name
+    else:
+        datacenter_name = config.get('defaults', 'datacenter_name')
 
-    datacenter_name = config.get('defaults', 'datacenter_name')
-    edge_datastore = config.get('defaults', 'edge_datastore')
-    edge_cluster = config.get('defaults', 'edge_cluster')
+    if args.edge_datastore:
+        edge_datastore = args.edge_datastore
+    else:
+        edge_datastore = config.get('defaults', 'edge_datastore')
+
+    if args.edge_cluster:
+        edge_cluster = args.edge_cluster
+    else:
+        edge_cluster = config.get('defaults', 'edge_cluster')
+
+    if args.command in ['add_interface', 'create']:
+        vccontent = connect_to_vc(config.get('vcenter', 'vcenter'), config.get('vcenter', 'vcenter_user'),
+                                  config.get('vcenter', 'vcenter_passwd'))
+    else:
+        vccontent = None
 
     try:
         command_selector = {

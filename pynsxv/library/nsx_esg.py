@@ -1045,9 +1045,6 @@ def _esg_main(args):
     client_session = NsxClient(nsxramlfile, config.get('nsxv', 'nsx_manager'),
                                config.get('nsxv', 'nsx_username'), config.get('nsxv', 'nsx_password'), debug=debug)
 
-    vccontent = connect_to_vc(config.get('vcenter', 'vcenter'), config.get('vcenter', 'vcenter_user'),
-                              config.get('vcenter', 'vcenter_passwd'))
-
     if args.datacenter_name:
         datacenter_name = args.datacenter_name
     else:
@@ -1062,6 +1059,13 @@ def _esg_main(args):
         edge_cluster = args.edge_cluster
     else:
         edge_cluster = config.get('defaults', 'edge_cluster')
+
+    if args.command in ['create', 'cfg_interface']:
+        vccontent = connect_to_vc(config.get('vcenter', 'vcenter'), config.get('vcenter', 'vcenter_user'),
+                                  config.get('vcenter', 'vcenter_passwd'))
+    else:
+        vccontent = None
+
 
     try:
         command_selector = {
