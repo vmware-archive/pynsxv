@@ -149,16 +149,23 @@ def esg_create(client_session, esg_name, datacentermoid, datastoremoid, resource
 
 def _esg_create(client_session, vccontent, **kwargs):
     needed_params = ['esg_name', 'esg_size', 'esg_pwd', 'datacenter_name', 'edge_datastore', 'edge_cluster',
-                     'portgroup']
+                     'vnic_con']
     if not check_for_parameters(needed_params, kwargs):
         return None
     datacentermoid = get_datacentermoid(vccontent, kwargs['datacenter_name'])
     datastoremoid = get_datastoremoid(vccontent, kwargs['edge_datastore'])
     resourcepoolid = get_edgeresourcepoolmoid(vccontent, kwargs['edge_cluster'])
-    portgroupmoid = get_vdsportgroupid(vccontent, kwargs['portgroup'])
+
+    interface_con_id = get_vdsportgroupid(vccontent, kwargs['vnic_con'])
+    if not interface_con_id:
+        interface_con_id, interface_con_params = get_logical_switch(client_session, kwargs['vnic_con'])
+        if not interface_con_id:
+            print 'ERROR: Edge uplink interface name {} does NOT exist as VDS port ' \
+                      'group nor NSX logical switch'.format(kwargs['vnic_con'])
+            return None
 
     esg_id, esg_params = esg_create(client_session, kwargs['esg_name'],
-                                    datacentermoid, datastoremoid, resourcepoolid, portgroupmoid,
+                                    datacentermoid, datastoremoid, resourcepoolid, interface_con_id,
                                     esg_pwd=kwargs['esg_pwd'], esg_size=kwargs['esg_size'],
                                     esg_remote_access=kwargs['esg_remote_access'])
     if kwargs['verbose'] and esg_id:
@@ -323,18 +330,11 @@ def _esg_cfg_interface(client_session, vccontent, **kwargs):
     if not check_for_parameters(needed_params, kwargs):
         return None
 
-    if kwargs['logical_switch'] and kwargs['portgroup']:
-        print 'Both a logical switch and a portgroup were specified, please only specify one of these values'
-        return None
-
-    if kwargs['logical_switch']:
-        lsid, lsparams = get_logical_switch(client_session, kwargs['logical_switch'])
-        portgroup = lsid
-    elif kwargs['portgroup']:
-        pgid = get_vdsportgroupid(vccontent, kwargs['portgroup'])
-        portgroup = pgid
-    else:
-        portgroup = None
+    interface_con_id = get_vdsportgroupid(vccontent, kwargs['vnic_con'])
+    if not interface_con_id:
+        interface_con_id, interface_con_params = get_logical_switch(client_session, kwargs['vnic_con'])
+        if not interface_con_id:
+            interface_con_id = None
 
     if kwargs['vnic_ip']:
         if not kwargs['vnic_mask']:
@@ -356,7 +356,7 @@ def _esg_cfg_interface(client_session, vccontent, **kwargs):
         secondary_ips = kwargs['vnic_secondary_ips'].split(',')
 
     result = esg_cfg_interface(client_session, kwargs['esg_name'], kwargs['vnic_index'], name=kwargs['vnic_name'],
-                               vnic_type=kwargs['vnic_type'], portgroup_id=portgroup, is_connected=kwargs['vnic_state'],
+                               vnic_type=kwargs['vnic_type'], portgroup_id=interface_con_id, is_connected=kwargs['vnic_state'],
                                ipaddr=kwargs['vnic_ip'], netmask=netmask,
                                prefixlen=prefixlen, secondary_ips=secondary_ips)
     if result:
@@ -969,12 +969,9 @@ def contruct_parser(subparsers):
                         "--esg_remote_access",
                         help="ESG state of remote access (SSH) (True = enabled, False = disabled), default is False",
                         default="false")
-    parser.add_argument("-pg",
-                        "--portgroup",
-                        help="ESG portgroup name for vnic related operations and for the first vnic pg of esg creation")
-    parser.add_argument("-ls",
-                        "--logical_switch",
-                        help="ESG logical switch for vnic related operations and for the first vnic of esg creation")
+    parser.add_argument("-vc",
+                        "--vnic_con",
+                        help="ESG PG_name or LS_name for vnic related operations and for the 1st vnic of esg creation")
     parser.add_argument("-vi",
                         "--vnic_index",
                         help="vnic Id when configuring Vnic interfaces (0 to 9)")
@@ -1091,8 +1088,8 @@ def _esg_main(args):
                                        esg_pwd=args.esg_password, esg_size=args.esg_size,
                                        datacenter_name=datacenter_name, edge_datastore=edge_datastore,
                                        edge_cluster=edge_cluster, next_hop=args.next_hop,
-                                       portgroup=args.portgroup, logical_switch=args.logical_switch,
-                                       vnic_index=args.vnic_index, vnic_type=args.vnic_type, vnic_name=args.vnic_name,
+                                       vnic_con=args.vnic_con, vnic_index=args.vnic_index,
+                                       vnic_type=args.vnic_type, vnic_name=args.vnic_name,
                                        vnic_state=args.vnic_state, vnic_ip=args.vnic_ip, vnic_mask=args.vnic_mask,
                                        route_net=args.route_net, fw_default=args.fw_default,
                                        esg_remote_access=args.esg_remote_access,
