@@ -1,3 +1,4 @@
+# VMware has ended active development of this project, this repository will no longer be updated.
 # PyNSXv
 PyNSXv is a high level python based library that exposes ready to use work-flows and a CLI tool that can be used to control VMware NSX for vSphere
 
